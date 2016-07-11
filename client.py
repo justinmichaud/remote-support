@@ -1,12 +1,16 @@
 #!/usr/bin/python3
 
-# VM Setup:
-# Client A and Client B each have NATing set up on the virtualbox network adapter
-# Host is 10.0.2.2
+# Run server on one computer, and virtualbox with nat on two others
+# TODO Authenticate with server and destination
+# TODO expire entries in auth server
+# TODO kill connection if keepalive not kept
+# TODO forward udp packets from local port
+# TODO Forward some kind of ssh/vnc connection
+# TODO Fall back on upnp, or ask the user to forward ports
+
 import json
 from enum import Enum
 
-import time
 from twisted.internet import reactor, protocol
 from twisted.internet.task import LoopingCall
 
@@ -14,10 +18,6 @@ from twisted.internet.task import LoopingCall
 class PeerConnection(protocol.DatagramProtocol):
 
     class State(Enum):
-        # TODO Authenticate with server and destination
-        # TODO expire entries in auth server
-        # TODO kill connection if keepalive not kept
-        # TODO forward udp packets from local port
         authenticating = 1
         waiting_for_dest_authenticate = 2
         connecting_dest = 3
@@ -90,7 +90,6 @@ class PeerConnection(protocol.DatagramProtocol):
     def connected(self):
         """We are connected, keep the connection alive"""
         self._send_packet_to_dest("heartbeat:{0}".format(self.user_id).encode('ascii'))
-        self._send_packet_to_dest("My Custom Data from {0} at {1}".format(self.user_id, time.time()).encode('ascii'))
 
     def packet_from_auth(self, data):
         self.mapping = json.loads(data.decode('ascii'))
