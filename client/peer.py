@@ -111,21 +111,21 @@ class PeerConnection(protocol.DatagramProtocol):
     def _is_valid_connect(self, data):
         try:
             d = data.decode('ascii')
-        except TypeError:
+        except UnicodeDecodeError:
             return False
         return d.startswith("connect:") and d[8:] == self.dest_id
 
     def _is_valid_connect_ack(self, data):
         try:
             d = data.decode('ascii')
-        except TypeError:
+        except UnicodeDecodeError:
             return False
         return d.startswith("connect_ack:") and d[12:] == self.dest_id
 
     def _is_valid_heartbeat(self, data):
         try:
             d = data.decode('ascii')
-        except TypeError:
+        except UnicodeDecodeError:
             return False
         return d.startswith("heartbeat:") and d[10:] == self.dest_id
 
