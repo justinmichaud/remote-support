@@ -31,5 +31,5 @@ class Echo(protocol.DatagramProtocol):
         self.transport.write(json.dumps(mappings).encode('ascii'), addr)
 
 
-reactor.listenUDP(44000, Echo())
+reactor.listenUDP(40000, Echo())
 reactor.run()

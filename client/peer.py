@@ -30,7 +30,7 @@ class PeerConnection(protocol.DatagramProtocol):
         self._receive_callback = receive_callback
 
     def startProtocol(self):
-        self._event_loop_call.start(2)
+        self._event_loop_call.start(0.5)
 
     def datagramReceived(self, data, addr):
         if addr == self.auth_server:
