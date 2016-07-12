@@ -1,13 +1,3 @@
-#!/usr/bin/python3
-
-# Run server on one computer, and virtualbox with nat on two others
-# TODO Authenticate with server and destination
-# TODO expire entries in auth server
-# TODO kill connection if keepalive not kept
-# TODO forward udp packets from local port
-# TODO Forward some kind of ssh/vnc connection
-# TODO Fall back on upnp, or ask the user to forward ports
-
 import json
 from enum import Enum
 
@@ -16,6 +6,7 @@ from twisted.internet.task import LoopingCall
 
 
 class PeerConnection(protocol.DatagramProtocol):
+    """Handles establishing a udp connection with a peer"""
 
     class State(Enum):
         authenticating = 1
@@ -24,26 +15,27 @@ class PeerConnection(protocol.DatagramProtocol):
         acknowledging_dest_connect = 4
         connected = 5
 
-    def __init__(self):
+    def __init__(self, user_id, dest_id, auth_server, receive_callback):
         super(PeerConnection, self).__init__()
 
         self.state = self.State.authenticating
         self._last_state = self.state
 
-        self.user_id = input("What is your username?")
-        self.dest = input("Who would you like to connect to?")
-        self.auth_server = ('172.16.1.216', 44000)
+        self.user_id = user_id
+        self.dest_id = dest_id
+        self.auth_server = auth_server
         self.mapping = dict()
 
         self._event_loop_call = LoopingCall(PeerConnection.event_loop, self)
+        self._receive_callback = receive_callback
 
     def startProtocol(self):
-        self._event_loop_call.start(0.1)
+        self._event_loop_call.start(2)
 
     def datagramReceived(self, data, addr):
         if addr == self.auth_server:
             self.packet_from_auth(data)
-        elif self.dest in self.mapping and addr == self._dest_addr():
+        elif self.dest_id in self.mapping and addr == self._dest_addr():
             self.packet_from_dest(data)
 
     def event_loop(self):
@@ -96,7 +88,7 @@ class PeerConnection(protocol.DatagramProtocol):
         if self.state == self.State.authenticating:
             self.state = self.State.waiting_for_dest_authenticate
 
-        if self.dest in self.mapping and self.state == self.State.waiting_for_dest_authenticate:
+        if self.dest_id in self.mapping and self.state == self.State.waiting_for_dest_authenticate:
             self.state = self.State.connecting_dest
 
     def packet_from_dest(self, data):
@@ -110,38 +102,35 @@ class PeerConnection(protocol.DatagramProtocol):
             self.receive_tunnel_data(data)
 
     def send_tunnel_data(self, data):
-        self.transport.write(data)
+        if self.state == self.State.connected:
+            self._send_packet_to_dest(data)
 
     def receive_tunnel_data(self, data):
-        print(data)
+        self._receive_callback(data)
 
     def _is_valid_connect(self, data):
         try:
             d = data.decode('ascii')
         except TypeError:
             return False
-        return d.startswith("connect:") and d[8:] == self.dest
+        return d.startswith("connect:") and d[8:] == self.dest_id
 
     def _is_valid_connect_ack(self, data):
         try:
             d = data.decode('ascii')
         except TypeError:
             return False
-        return d.startswith("connect_ack:") and d[12:] == self.dest
+        return d.startswith("connect_ack:") and d[12:] == self.dest_id
 
     def _is_valid_heartbeat(self, data):
         try:
             d = data.decode('ascii')
         except TypeError:
             return False
-        return d.startswith("heartbeat:") and d[10:] == self.dest
+        return d.startswith("heartbeat:") and d[10:] == self.dest_id
 
     def _send_packet_to_dest(self, data):
         self.transport.write(data, self._dest_addr())
 
     def _dest_addr(self):
-        return self.mapping[self.dest]["host"], self.mapping[self.dest]["port"]
-
-
-reactor.listenUDP(44000, PeerConnection())
-reactor.run()
+        return self.mapping[self.dest_id]["host"], self.mapping[self.dest_id]["port"]
