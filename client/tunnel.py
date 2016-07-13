@@ -19,7 +19,7 @@ class TunnelInputThread(threading.Thread):
     def run(self):
         while self.tunnel.running:
             data = self.tunnel.tun.read(self.tunnel.tun.mtu)
-            print("Sending data of length", len(data), ":", hashlib.md5(data).hexdigest(), ":", " ".join('{:02x}'.format(x) for x in data[:5]), "...", " ".join('{:02x}'.format(x) for x in data[-5:]))
+            # print("Sending data of length", len(data), ":", hashlib.md5(data).hexdigest(), ":", " ".join('{:02x}'.format(x) for x in data[:5]), "...", " ".join('{:02x}'.format(x) for x in data[-5:]))
                         
             # Data becomes packets with the following structure:
             # 00 [size of this packet, 2 bytes] [data]
@@ -102,8 +102,6 @@ class Tunnel(threading.Thread):
                     print("Recieved packet that is too small")
                     continue
                 
-                print("Raw packet:", " ".join('{:02x}'.format(x) for x in data[:10]))
-                
                 magic = int.from_bytes(data[0:1], byteorder='big')
                 size = int.from_bytes(data[1:3], byteorder='big')
                 expected_size = len(data) - 3 if magic == 0 else len(data) - 6
@@ -166,5 +164,5 @@ class Tunnel(threading.Thread):
     
     def _inject_packet(self, data):
         self.tun.write(data)
-        print("Received data of length", len(data), ":", hashlib.md5(data).hexdigest(), ":", " ".join('{:02x}'.format(x) for x in data[:5]), "...", " ".join('{:02x}'.format(x) for x in data[-5:]))
+        # print("Received data of length", len(data), ":", hashlib.md5(data).hexdigest(), ":", " ".join('{:02x}'.format(x) for x in data[:5]), "...", " ".join('{:02x}'.format(x) for x in data[-5:]))
 
