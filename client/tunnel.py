@@ -42,8 +42,8 @@ class TunnelInputThread(threading.Thread):
                 while i < len(data):
                     p = i//chunksize
                     
-                    if packets[p] == None:
-                        packets[p] = bytearray()
+                    if len(packets) <= p:
+                        packets.append(bytearray())
                     
                     packets[p].append(data[i])
                     i += 1
@@ -142,6 +142,7 @@ class Tunnel(threading.Thread):
                         for piece in self._packets_to_assemble[packet_id]["pieces"]:
                             packet.append(piece)
                         self._inject_packet(bytes(packet))
+                        del self._packets_to_assemble[packet_id]
                 else:
                     print("Invalid magic number for packet:", magic)                
                 
