@@ -104,9 +104,10 @@ class Tunnel(threading.Thread):
                 
                 magic = int.from_bytes(data[0:1], byteorder='big')
                 size = int.from_bytes(data[1:3], byteorder='big')
+                expected_size = len(data) - 3 if magic == 0 else len(data) - 6
                 
-                if (len(data) - 6 != size):
-                    print("Packet does not contain the data that size field says it should")
+                if (expected_size != size):
+                    print("Packet does not contain the data that size field says it should:", expected_size, size)
                     continue
                 
                 if magic == 0:
@@ -142,7 +143,7 @@ class Tunnel(threading.Thread):
                             packet.append(piece)
                         self._inject_packet(bytes(packet))
                 else:
-                    print("Invalid magic number for packet")                
+                    print("Invalid magic number for packet:", magic)                
                 
             while not self._data_to_send.empty():
                 data = self._data_to_send.get()
