@@ -18,7 +18,7 @@ class TunnelInputThread(threading.Thread):
     def run(self):
         while self.tunnel.running:
             data = self.tunnel.tun.read(self.tunnel.tun.mtu)
-            print("Sending data of length", len(data), ":",hashlib.md5(data).hexdigest())
+            print("Sending data of length", len(data), ":", hashlib.md5(data).hexdigest(), ":", " ".join('{:02x}'.format(x) for x in data[:5]), "...", " ".join('{:02x}'.format(x) for x in data[-5:]))
             if len(data) > self.tunnel.tun.mtu:
                 print("Rejected received packet that was too large")
                 continue
@@ -68,7 +68,7 @@ class Tunnel(threading.Thread):
 
                     if self._current_packet_bytes_remaining == 0:
                         self.tun.write(bytes(self._current_packet))
-                        print("Received data of length", len(self._current_packet), ":",hashlib.md5(bytes(self._current_packet)).hexdigest())
+                        print("Received data of length", len(self._current_packet), ":", hashlib.md5(bytes(self._current_packet)).hexdigest(), ":", " ".join('{:02x}'.format(x) for x in self._current_packet[:5]), "...", " ".join('{:02x}'.format(x) for x in self._current_packet[-5:]))
                         self._current_packet.clear()  # Wait for size of next packet
                 if self._current_packet_bytes_remaining != 0:
                     print("Rejecting packet from tunnel - did not fit inside one udp packet. Adjust MTU")
