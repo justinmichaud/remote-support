@@ -136,13 +136,13 @@ class Tunnel(threading.Thread):
                     self._packets_to_assemble[packet_id]["pieces"][order] = data[6:]
                     
                     current_length = 0
-                    for piece in self._packets_to_assemble[packet_id]["pieces"]:
+                    for i, piece in self._packets_to_assemble[packet_id]["pieces"]:
                         current_length += len(piece)
                     
                     if current_length == self._packets_to_assemble[packet_id]["total_size"]:
                         packet = bytearray()
-                        for piece in self._packets_to_assemble[packet_id]["pieces"]:
-                            packet.append(piece)
+                        for i in sorted(self._packets_to_assemble[packet_id]["pieces"].iterkeys()):
+                            packet.append(self._packets_to_assemble[packet_id]["pieces"][i])
                         self._inject_packet(bytes(packet))
                         del self._packets_to_assemble[packet_id]
                 else:
