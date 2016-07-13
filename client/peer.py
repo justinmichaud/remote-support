@@ -28,6 +28,9 @@ class PeerConnection(protocol.DatagramProtocol):
 
         self._event_loop_call = LoopingCall(PeerConnection.event_loop, self)
         self._receive_callback = receive_callback
+        
+        # Max size that we can send reliably
+        self.mtu = 500
 
     def startProtocol(self):
         self._event_loop_call.start(0.5)
