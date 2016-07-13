@@ -161,7 +161,7 @@ class Tunnel(threading.Thread):
         """Handle incoming data from this computer"""
         self._data_to_send.put(data)
     
-    def _inject_packet(data):
+    def _inject_packet(self, data):
         self.tun.write(data)
         print("Received data of length", len(data), ":", hashlib.md5(data).hexdigest(), ":", " ".join('{:02x}'.format(x) for x in data[:5]), "...", " ".join('{:02x}'.format(x) for x in data[-5:]))
 
