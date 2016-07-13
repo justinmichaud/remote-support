@@ -142,7 +142,7 @@ class Tunnel(threading.Thread):
                     if current_length == self._packets_to_assemble[packet_id]["total_size"]:
                         packet = bytearray()
                         for i in sorted(self._packets_to_assemble[packet_id]["pieces"].keys()):
-                            packet.append(self._packets_to_assemble[packet_id]["pieces"][i])
+                            packet.extend(self._packets_to_assemble[packet_id]["pieces"][i])
                         self._inject_packet(bytes(packet))
                         del self._packets_to_assemble[packet_id]
                 else:
