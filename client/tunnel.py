@@ -36,7 +36,7 @@ class TunnelInputThread(threading.Thread):
             else:
                 chunksize = self.tunnel.peer.mtu - 6
                 packets = []
-                packets[0] = bytearray()
+                packets.append(bytearray())
                 i = 0
                 
                 while i < len(data):
