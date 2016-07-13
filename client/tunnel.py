@@ -55,7 +55,7 @@ class TunnelInputThread(threading.Thread):
                     + bytes(packets[0]))
                     
                 for i in range(1, len(packets)):
-                    self.tunnel.receive_tap_data((1).to_bytes(1, byteorder='big')
+                    self.tunnel.receive_tap_data((2).to_bytes(1, byteorder='big')
                         + len(packets[i]).to_bytes(2, byteorder='big')
                         + self._packet_id.to_bytes(1, byteorder='big') 
                         + i.to_bytes(2, byteorder='big')
