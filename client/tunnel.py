@@ -102,6 +102,8 @@ class Tunnel(threading.Thread):
                     print("Recieved packet that is too small")
                     continue
                 
+                print("Raw packet:", " ".join('{:02x}'.format(x) for x in data[:10]))
+                
                 magic = int.from_bytes(data[0:1], byteorder='big')
                 size = int.from_bytes(data[1:3], byteorder='big')
                 expected_size = len(data) - 3 if magic == 0 else len(data) - 6
