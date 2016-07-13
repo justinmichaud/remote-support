@@ -152,7 +152,7 @@ class Tunnel(threading.Thread):
         self.running = False
         self.tun.close()
 
-    def receivepeer_data(self, data):
+    def receive_peer_data(self, data):
         """Handle incoming data from the peer"""
         self._data_to_process.put(data)
 
