@@ -136,8 +136,8 @@ class Tunnel(threading.Thread):
                     self._packets_to_assemble[packet_id]["pieces"][order] = data[6:]
                     
                     current_length = 0
-                    for i, piece in self._packets_to_assemble[packet_id]["pieces"]:
-                        current_length += len(piece)
+                    for i in self._packets_to_assemble[packet_id]["pieces"]:
+                        current_length += len(self._packets_to_assemble[packet_id]["pieces"][i])
                     
                     if current_length == self._packets_to_assemble[packet_id]["total_size"]:
                         packet = bytearray()
