@@ -102,7 +102,7 @@ class Tunnel(threading.Thread):
                     print("Recieved packet that is too small")
                     continue
                 
-                magic = int.from_bytes(data[0], byteorder='big')
+                magic = int.from_bytes(data[0:1], byteorder='big')
                 size = int.from_bytes(data[1:3], byteorder='big')
                 
                 if (len(data) - 6 != size):
@@ -112,7 +112,7 @@ class Tunnel(threading.Thread):
                 if magic == 0:
                     self._inject_packet(bytes(data[3:]))
                 elif magic == 1:
-                    packet_id = int.from_bytes(data[3], byteorder='big')
+                    packet_id = int.from_bytes(data[3:4], byteorder='big')
                     packet = {}
                     packet["total_size"] = int.from_bytes(data[4:6], byteorder='big')
                     packet["pieces"] = {}
@@ -123,7 +123,7 @@ class Tunnel(threading.Thread):
                     
                     self._packets_to_assemble[packet_id] = packet                    
                 elif magic == 2:
-                    packet_id = int.from_bytes(data[3], byteorder='big')
+                    packet_id = int.from_bytes(data[3:4], byteorder='big')
                     order = int.from_bytes(data[4:6], byteorder='big')
                     
                     if not packet_id in self._packets_to_assemble:
