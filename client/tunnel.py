@@ -18,9 +18,9 @@ class TunnelInputThread(threading.Thread):
     def run(self):
         while self.tunnel.running:
             data = self.tunnel.tun.read(self.tunnel.tun.mtu)
-            #print("Sending data of length", len(data), ":",hashlib.md5(data).hexdigest())
-            if len(data) > 574:  # 576 is the max for udp, - 2 bytes for our size
-                print("Rejected packet that was too large")
+            print("Sending data of length", len(data), ":",hashlib.md5(data).hexdigest())
+            if len(data) > self.tunnel.tun.mtu:
+                print("Rejected received packet that was too large")
                 continue
             self.tunnel.receive_tap_data(len(data).to_bytes(2, byteorder='big') + data)
 
@@ -43,7 +43,7 @@ class Tunnel(threading.Thread):
         self.tun.addr = '10.8.0.{0}'.format(self._peer.user_id)
         self.tun.dstaddr = '10.8.0.{0}'.format(self._peer.dest_id)
         self.tun.netmask = '255.255.255.0'
-        self.tun.mtu = 574
+        self.tun.mtu = 576
         self.tun.up()
 
         self.setDaemon(True)
@@ -68,7 +68,12 @@ class Tunnel(threading.Thread):
 
                     if self._current_packet_bytes_remaining == 0:
                         self.tun.write(bytes(self._current_packet))
+                        print("Received data of length", len(self._current_packet), ":",hashlib.md5(bytes(self._current_packet)).hexdigest())
                         self._current_packet.clear()  # Wait for size of next packet
+                if self._current_packet_bytes_remaining != 0:
+                    print("Rejecting packet from tunnel - did not fit inside one udp packet. Adjust MTU")
+                    self._current_packet.clear()
+                    self._current_packet_bytes_remaining = 0
 
             while not self._data_to_send.empty():
                 data = self._data_to_send.get()
