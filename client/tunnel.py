@@ -6,6 +6,8 @@ from twisted.internet import reactor
 
 from peer import PeerConnection
 
+import hashlib
+
 
 class TunnelInputThread(threading.Thread):
     def __init__(self, tunnel):
@@ -16,7 +18,8 @@ class TunnelInputThread(threading.Thread):
     def run(self):
         while self.tunnel.running:
             data = self.tunnel.tun.read(self.tunnel.tun.mtu)
-            if len(data) > 65505:
+            #print("Sending data of length", len(data), ":",hashlib.md5(data).hexdigest())
+            if len(data) > 574:  # 576 is the max for udp, - 2 bytes for our size
                 print("Rejected packet that was too large")
                 continue
             self.tunnel.receive_tap_data(len(data).to_bytes(2, byteorder='big') + data)
@@ -40,7 +43,7 @@ class Tunnel(threading.Thread):
         self.tun.addr = '10.8.0.{0}'.format(self._peer.user_id)
         self.tun.dstaddr = '10.8.0.{0}'.format(self._peer.dest_id)
         self.tun.netmask = '255.255.255.0'
-        self.tun.mtu = 65507
+        self.tun.mtu = 574
         self.tun.up()
 
         self.setDaemon(True)
