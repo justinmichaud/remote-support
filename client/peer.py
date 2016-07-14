@@ -1,6 +1,7 @@
 import json
 from enum import Enum
 
+import time
 from twisted.internet import reactor, protocol
 from twisted.internet.task import LoopingCall
 
@@ -14,12 +15,14 @@ class PeerConnection(protocol.DatagramProtocol):
         connecting_dest = 3
         acknowledging_dest_connect = 4
         connected = 5
+        disconnected = 6
 
     def __init__(self, user_id, dest_id, auth_server, receive_callback):
         super(PeerConnection, self).__init__()
 
         self.state = self.State.authenticating
         self._last_state = self.state
+        self._last_packet_time = time.time()
 
         self.user_id = user_id
         self.dest_id = dest_id
@@ -36,12 +39,19 @@ class PeerConnection(protocol.DatagramProtocol):
         self._event_loop_call.start(0.5)
 
     def datagramReceived(self, data, addr):
-        if addr == self.auth_server:
+        if addr == self.auth_server and self.state in [self.State.authenticating,
+                                                       self.State.waiting_for_dest_authenticate]:
             self.packet_from_auth(data)
-        elif self.dest_id in self.mapping and addr == self._dest_addr():
+        elif self.dest_id in self.mapping and addr == self._dest_addr() \
+                and self.state in [self.State.connecting_dest,
+                                   self.State.acknowledging_dest_connect,
+                                   self.State.connected]:
             self.packet_from_dest(data)
 
     def event_loop(self):
+        if time.time() - self._last_packet_time > 30:
+            self.state = self.State.disconnected
+
         if self.state != self._last_state:
             self.state_changed()
 
@@ -55,8 +65,6 @@ class PeerConnection(protocol.DatagramProtocol):
             self.acknowledging_dest_connect()
         elif self.state == self.State.connected:
             self.connected()
-        else:
-            raise ValueError("Unknown State")
 
     def state_changed(self):
         print("State changed from", self._last_state, "to", self.state)
@@ -64,6 +72,8 @@ class PeerConnection(protocol.DatagramProtocol):
         if self.state == self.State.connected:
             self._event_loop_call.stop()
             self._event_loop_call.start(5)
+        elif self.state == self.State.disconnected:
+            reactor.stop()
 
     def authenticating(self):
         """Authenticate with the public server and tell it our ip/username"""
