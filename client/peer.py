@@ -42,13 +42,13 @@ class PeerConnection(protocol.DatagramProtocol):
         if addr == self.auth_server and self.state in [self.State.authenticating,
                                                        self.State.waiting_for_dest_authenticate]:
             self.packet_from_auth(data)
-            self._last_packet_time = time.now()
+            self._last_packet_time = time.time()
         elif self.dest_id in self.mapping and addr == self._dest_addr() \
                 and self.state in [self.State.connecting_dest,
                                    self.State.acknowledging_dest_connect,
                                    self.State.connected]:
             self.packet_from_dest(data)
-            self._last_packet_time = time.now()
+            self._last_packet_time = time.time()
 
     def event_loop(self):
         if time.time() - self._last_packet_time > 30:
