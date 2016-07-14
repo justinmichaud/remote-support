@@ -16,7 +16,7 @@ from tunnel import Tunnel
 
 conn = PeerConnection(input("What is your username?"),
                       input("Who would you like to connect to?"),
-                      ('63.135.27.26', 40000),  # dev: ('172.16.1.216', 40000), public ('63.135.27.26', 40000)
+                      ('172.16.1.216', 40000),  # dev: ('172.16.1.216', 40000), public ('63.135.27.26', 40000)
                       lambda data: tunnel_thread.receive_peer_data(data))
 tunnel_thread = Tunnel(conn)
 tunnel_thread.start()
