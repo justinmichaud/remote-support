@@ -1,0 +1,5 @@
+Temp. Research notes for encryption:
+
+DTLS - Write using ctypes
+https://github.com/ARMmbed/mbedtls/blob/development/programs/ssl/dtls_client.c
+https://github.com/Synss/python-mbedtls
