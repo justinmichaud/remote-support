@@ -9,7 +9,7 @@ It uses UDP hole punching to allow clients to connect through NATs. A publicly a
 
 # TODO / Ideas to explore
 
-- Encrypt connections using tls + utp
+- Encrypt connections using java + tls (bouncycastle) + utp
 - Replace tun adapter with tcp tunnel. Send data from local tcp connection over encrypted tls+utp (stream over udp) connection, where it is sent to remote tcp connection
 - Authenticate with public server and destination
 - Use public server to share client certificates, tell client when it is receiving support, and establish tun ip addresses using that
