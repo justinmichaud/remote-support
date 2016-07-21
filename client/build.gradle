@@ -1,3 +1,7 @@
 apply plugin: 'java'
 apply plugin: 'application'
-mainClassName = "com.justinmichaud.remotesupport.client.Main"
+mainClassName = "com.justinmichaud.remotesupport.client.Client"
+
+dependencies {
+    compile project(':common')
+}

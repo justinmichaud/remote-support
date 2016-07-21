@@ -1,8 +1,14 @@
+package com.justinmichaud.remotesupport.server;
+
+import com.barchart.udt.net.NetServerSocketUDT;
 import sun.security.tools.keytool.CertAndKeyGen;
 import sun.security.x509.X500Name;
 
 import javax.net.ssl.*;
 import java.io.*;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -19,17 +25,20 @@ public class Server {
     public void runServer() throws IOException, CertificateException, NoSuchAlgorithmException, UnrecoverableKeyException, InvalidKeyException, SignatureException, NoSuchProviderException, KeyStoreException, KeyManagementException {
         load();
 
-        SSLServerSocketFactory socketFactory = sslContext.getServerSocketFactory();
-        SSLServerSocket serverSocket =
-                (SSLServerSocket) socketFactory.createServerSocket(9999);
-        SSLSocket sslsocket = (SSLSocket) serverSocket.accept();
+        ServerSocket serverSocket = new NetServerSocketUDT();
+        serverSocket.bind(new InetSocketAddress(5000), 1);
 
-        InputStream inputstream = sslsocket.getInputStream();
-        InputStreamReader inputstreamreader = new InputStreamReader(inputstream);
-        BufferedReader bufferedreader = new BufferedReader(inputstreamreader);
+        Socket baseConnection = serverSocket.accept();
+        SSLSocket conn = (SSLSocket) sslContext.getSocketFactory().createSocket(baseConnection,
+                baseConnection.getLocalAddress().getHostName(), baseConnection.getLocalPort(), true);
+        conn.setUseClientMode(false);
+
+        InputStream inputStream = conn.getInputStream();
+        InputStreamReader streamReader = new InputStreamReader(inputStream);
+        BufferedReader bufferedReader = new BufferedReader(streamReader);
 
         String string;
-        while ((string = bufferedreader.readLine()) != null) {
+        while ((string = bufferedReader.readLine()) != null) {
             System.out.println(string);
             System.out.flush();
         }
@@ -99,4 +108,5 @@ public class Server {
             e.printStackTrace();
         }
     }
+
 }

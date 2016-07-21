@@ -1,4 +1,5 @@
 rootProject.name = 'remotesupport'
 include 'client'
 include 'server'
+include 'common'
 

@@ -1,5 +1,11 @@
+package com.justinmichaud.remotesupport.client;
+
+import com.barchart.udt.net.NetSocketUDT;
+
 import javax.net.ssl.*;
 import java.io.*;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.security.*;
 import java.security.cert.CertificateException;
 
@@ -14,14 +20,17 @@ public class Client {
     public void runClient() throws CertificateException, UnrecoverableKeyException, NoSuchAlgorithmException, KeyStoreException, KeyManagementException, IOException {
         load();
 
-        SSLSocketFactory sslsocketfactory = sslContext.getSocketFactory();
-        SSLSocket sslsocket = (SSLSocket) sslsocketfactory.createSocket("localhost", 9999);
+        Socket baseSocket = new NetSocketUDT();
+        baseSocket.connect(new InetSocketAddress("localhost", 5000));
+
+        Socket socket = sslContext.getSocketFactory().createSocket(baseSocket,
+                baseSocket.getLocalAddress().getHostName(), baseSocket.getLocalPort(), true);
 
         InputStream inputstream = System.in;
         InputStreamReader inputstreamreader = new InputStreamReader(inputstream);
         BufferedReader bufferedreader = new BufferedReader(inputstreamreader);
 
-        OutputStream outputstream = sslsocket.getOutputStream();
+        OutputStream outputstream = socket.getOutputStream();
         OutputStreamWriter outputstreamwriter = new OutputStreamWriter(outputstream);
         BufferedWriter bufferedwriter = new BufferedWriter(outputstreamwriter);
 
