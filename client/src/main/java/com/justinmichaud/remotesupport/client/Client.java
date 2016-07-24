@@ -1,6 +1,7 @@
 package com.justinmichaud.remotesupport.client;
 
 import com.barchart.udt.net.NetSocketUDT;
+import com.justinmichaud.remotesupport.common.Connection;
 
 import javax.net.ssl.*;
 import java.io.*;
@@ -11,28 +12,19 @@ import java.security.cert.CertificateException;
 
 public class Client {
 
-    private KeyManagerFactory keyManagerFactory;
-
-    private TrustManagerFactory trustManagerFactory;
-
-    private SSLContext sslContext;
-
-    public void runClient() throws CertificateException, UnrecoverableKeyException, NoSuchAlgorithmException, KeyStoreException, KeyManagementException, IOException {
-        load();
+    public static void main(String... args) throws GeneralSecurityException, IOException {
+        System.out.println("Client");
 
         Socket baseSocket = new NetSocketUDT();
         baseSocket.connect(new InetSocketAddress("localhost", 5000));
-
-        System.out.println("Connected!");
-
-        Socket socket = sslContext.getSocketFactory().createSocket(baseSocket,
-                baseSocket.getLocalAddress().getHostName(), baseSocket.getLocalPort(), true);
+        Connection conn = new Connection(baseSocket, new File("client_private.jks"),
+                new File("client_public.jks"), new File("client_trusted.jks"), false);
 
         InputStream inputstream = System.in;
         InputStreamReader inputstreamreader = new InputStreamReader(inputstream);
         BufferedReader bufferedreader = new BufferedReader(inputstreamreader);
 
-        OutputStream outputstream = socket.getOutputStream();
+        OutputStream outputstream = conn.getOutputStream();
         OutputStreamWriter outputstreamwriter = new OutputStreamWriter(outputstream);
         BufferedWriter bufferedwriter = new BufferedWriter(outputstreamwriter);
 
@@ -40,43 +32,6 @@ public class Client {
         while ((string = bufferedreader.readLine()) != null) {
             bufferedwriter.write(string + '\n');
             bufferedwriter.flush();
-        }
-    }
-
-    private void load() throws CertificateException, NoSuchAlgorithmException, KeyStoreException, IOException, UnrecoverableKeyException, KeyManagementException {
-        loadOrCreateClientKeys();
-        loadServerCertificate(new File("server_public_keystore.jks"));
-        loadSsl();
-    }
-
-    private void loadSsl() throws KeyManagementException, NoSuchAlgorithmException {
-        sslContext = SSLContext.getInstance("TLSv1.2");
-        sslContext.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), null);
-    }
-
-    private void loadOrCreateClientKeys() throws UnrecoverableKeyException, NoSuchAlgorithmException, KeyStoreException {
-        keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-        keyManagerFactory.init(null, null);
-    }
-
-    private void loadServerCertificate(File pub) throws KeyStoreException, IOException, CertificateException, NoSuchAlgorithmException {
-        final char[] serverPublicStorePass = "1".toCharArray();
-
-        KeyStore serverPublicStore = KeyStore.getInstance("JKS");
-        serverPublicStore.load(new FileInputStream(pub), serverPublicStorePass);
-
-        trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-        trustManagerFactory.init(serverPublicStore);
-    }
-
-    public static void main(String... args) {
-        System.out.println("Client");
-
-        Client client = new Client();
-        try {
-            client.runClient();
-        } catch (Exception exception) {
-            exception.printStackTrace();
         }
     }
 }
