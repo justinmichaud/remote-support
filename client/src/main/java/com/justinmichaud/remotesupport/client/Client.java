@@ -23,6 +23,8 @@ public class Client {
         Socket baseSocket = new NetSocketUDT();
         baseSocket.connect(new InetSocketAddress("localhost", 5000));
 
+        System.out.println("Connected!");
+
         Socket socket = sslContext.getSocketFactory().createSocket(baseSocket,
                 baseSocket.getLocalAddress().getHostName(), baseSocket.getLocalPort(), true);
 

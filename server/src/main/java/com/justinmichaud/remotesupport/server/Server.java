@@ -1,17 +1,28 @@
 package com.justinmichaud.remotesupport.server;
 
 import com.barchart.udt.net.NetServerSocketUDT;
-import sun.security.tools.keytool.CertAndKeyGen;
-import sun.security.x509.X500Name;
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.X509v1CertificateBuilder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 
-import javax.net.ssl.*;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.TrustManagerFactory;
 import java.io.*;
+import java.math.BigInteger;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.Date;
 
 public class Server {
 
@@ -22,7 +33,7 @@ public class Server {
 
     private SSLContext sslContext;
 
-    public void runServer() throws IOException, CertificateException, NoSuchAlgorithmException, UnrecoverableKeyException, InvalidKeyException, SignatureException, NoSuchProviderException, KeyStoreException, KeyManagementException {
+    public void runServer() throws IOException, CertificateException, NoSuchAlgorithmException, UnrecoverableKeyException, InvalidKeyException, SignatureException, NoSuchProviderException, KeyStoreException, KeyManagementException, OperatorCreationException {
         load();
 
         ServerSocket serverSocket = new NetServerSocketUDT();
@@ -32,6 +43,8 @@ public class Server {
         SSLSocket conn = (SSLSocket) sslContext.getSocketFactory().createSocket(baseConnection,
                 baseConnection.getLocalAddress().getHostName(), baseConnection.getLocalPort(), true);
         conn.setUseClientMode(false);
+
+        System.out.println("Connected!");
 
         InputStream inputStream = conn.getInputStream();
         InputStreamReader streamReader = new InputStreamReader(inputStream);
@@ -44,7 +57,8 @@ public class Server {
         }
     }
 
-    private void load() throws CertificateException, UnrecoverableKeyException, NoSuchAlgorithmException, KeyStoreException, SignatureException, NoSuchProviderException, InvalidKeyException, IOException, KeyManagementException {
+    private void load() throws CertificateException, UnrecoverableKeyException, NoSuchAlgorithmException, KeyStoreException, SignatureException, NoSuchProviderException, InvalidKeyException, IOException, KeyManagementException, OperatorCreationException {
+        Security.addProvider(new BouncyCastleProvider());
         loadOrCreateServerKeys(new File("server_private_keystore.jks"), new File("server_public_keystore.jks"));
         loadClientCertificate();
         loadSsl();
@@ -55,7 +69,7 @@ public class Server {
         sslContext.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), null);
     }
 
-    private void loadOrCreateServerKeys(File priv, File pub) throws KeyStoreException, CertificateException, NoSuchAlgorithmException, IOException, NoSuchProviderException, InvalidKeyException, SignatureException, UnrecoverableKeyException {
+    private void loadOrCreateServerKeys(File priv, File pub) throws KeyStoreException, CertificateException, NoSuchAlgorithmException, IOException, NoSuchProviderException, InvalidKeyException, SignatureException, UnrecoverableKeyException, OperatorCreationException {
         final char[] serverPrivateStorePass = "1234".toCharArray();
         final char[] serverPublicStorePass = "1".toCharArray();
 
@@ -72,12 +86,31 @@ public class Server {
             serverPrivateStore.load(null, null);
             serverPublicStore.load(null, null);
 
-            CertAndKeyGen keyGen = new CertAndKeyGen("RSA","SHA1WithRSA",null);
-            keyGen.generate(1024);
-            X509Certificate[] certs = new X509Certificate[1];
-            certs[0] = keyGen.getSelfCertificate(new X500Name("CN=ROOT"), (long)365*24*3600);
+            // Generate private key and public certificate
 
-            serverPrivateStore.setKeyEntry("server_cert", keyGen.getPrivateKey(), serverPrivateStorePass, certs);
+            KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+            keyGen.initialize(1024);
+            KeyPair key = keyGen.generateKeyPair();
+
+            ContentSigner sigGen = new JcaContentSignerBuilder("SHA1withRSA").setProvider("BC").build(key.getPrivate());
+            SubjectPublicKeyInfo subPubKeyInfo = SubjectPublicKeyInfo.getInstance(key.getPublic().getEncoded());
+
+            Date startDate = new Date(System.currentTimeMillis() - 24 * 60 * 60 * 1000);
+            Date endDate = new Date(System.currentTimeMillis() + 365 * 24 * 60 * 60 * 1000);
+
+            X509v1CertificateBuilder certGen = new X509v1CertificateBuilder(
+                    new org.bouncycastle.asn1.x500.X500Name("CN=Test"),
+                    BigInteger.ONE,
+                    startDate, endDate,
+                    new org.bouncycastle.asn1.x500.X500Name("CN=Test"),
+                    subPubKeyInfo
+            );
+
+            X509CertificateHolder certificateHolder = certGen.build(sigGen);
+            X509Certificate[] certs = new X509Certificate[1];
+            certs[0] = new JcaX509CertificateConverter().setProvider("BC").getCertificate(certificateHolder);
+
+            serverPrivateStore.setKeyEntry("server_cert", key.getPrivate(), serverPrivateStorePass, certs);
             serverPrivateStore.store(priv_out, serverPrivateStorePass);
 
             serverPublicStore.setCertificateEntry("server_cert", certs[0]);

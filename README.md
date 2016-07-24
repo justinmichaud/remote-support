@@ -9,14 +9,14 @@ It uses UDP hole punching to allow clients to connect through NATs. A publicly a
 
 # TODO / Ideas to explore
 
-- Encrypt connections using java + tls (bouncycastle) + utp
-- Replace tun adapter with tcp tunnel. Send data from local tcp connection over encrypted tls+utp (stream over udp) connection, where it is sent to remote tcp connection
-- Authenticate with public server and destination
-- Use public server to share client certificates, tell client when it is receiving support, and establish tun ip addresses using that
-- Prompt client receiving support to accept connection + random confirmation code
+- Tunnel tcp connection
+- Allow peers to choose to accept unknown certificate, display random code
+- Prompt peers to accept connection
+- Establish encrypted dtls connection with public server, get/send info for udp hole punching
+- Create simple confined shell to allow controlling remote computer
 - Ask the user to forward ports if udp hole punching doesn't work
 - Handle edge cases when two people try to connect to same computer
 
 - Make simple gui to allow the connection details to be entered
-- Forward ssh and vnc from gui
+- Forward vnc from gui
 
