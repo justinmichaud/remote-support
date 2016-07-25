@@ -18,7 +18,7 @@ import java.security.cert.*;
 import java.util.Date;
 import java.util.Scanner;
 
-public class Connection {
+public class PartnerConnection {
 
     private final static String SSL_VERSION = "TLSv1.2";
     private final static char[] keystorePassword = "1".toCharArray();
@@ -32,8 +32,8 @@ public class Connection {
 
     private SSLSocket socket;
 
-    public Connection(String alias, String partnerAlias, Socket baseSocket, File privateKeystoreFile,
-                      File trustedKeystoreFile, boolean server)
+    public PartnerConnection(String alias, String partnerAlias, Socket baseSocket, File privateKeystoreFile,
+                             File trustedKeystoreFile, boolean server)
             throws GeneralSecurityException, IOException, OperatorCreationException {
         if (Security.getProvider("BC") == null)
             Security.addProvider(new BouncyCastleProvider());
@@ -46,13 +46,16 @@ public class Connection {
         loadOrCreateTrustStore(trustedKeystoreFile);
         loadSSLContext();
 
+        System.out.println("Your fingerprint is " + getFingerprint());
+        if (server && !prompt("Would you like to accept a connection from "
+                + baseSocket.getInetAddress() + ":" + baseSocket.getPort() + "?"))
+            throw new GeneralSecurityException("Connection Denied by User");
+
         socket = (SSLSocket) sslContext.getSocketFactory().createSocket(baseSocket,
                 baseSocket.getLocalAddress().getHostName(), baseSocket.getLocalPort(), true);
         socket.setKeepAlive(true);
         socket.setUseClientMode(!server);
         if (server) socket.setNeedClientAuth(true);
-
-        System.out.println("Your fingerprint is " + getFingerprint());
 
         socket.startHandshake();
     }

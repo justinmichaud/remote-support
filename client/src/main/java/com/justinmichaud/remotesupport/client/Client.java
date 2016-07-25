@@ -1,41 +1,61 @@
 package com.justinmichaud.remotesupport.client;
 
 import com.barchart.udt.net.NetSocketUDT;
-import com.justinmichaud.remotesupport.common.Connection;
+import com.justinmichaud.remotesupport.common.LocalTunnel;
+import com.justinmichaud.remotesupport.common.PartnerConnection;
 import org.bouncycastle.operator.OperatorCreationException;
 
-import javax.net.ssl.*;
 import java.io.*;
-import java.net.InetSocketAddress;
-import java.net.Socket;
+import java.net.*;
 import java.security.*;
-import java.security.cert.CertificateException;
 
 public class Client {
 
-    public static void main(String... args) throws GeneralSecurityException, IOException, OperatorCreationException {
+    private static class ConnectRunnable implements Runnable {
+
+        private PartnerConnection peer;
+
+        public ConnectRunnable(PartnerConnection peer) throws IOException {
+            this.peer = peer;
+        }
+
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    System.out.println("Waiting to create tunneled connection to port 4000");
+                    Socket localSocket = new Socket("localhost", 4000);
+                    System.out.println("Created new tunneled connection");
+                    LocalTunnel tunnel = new LocalTunnel(localSocket.getInputStream(), localSocket.getOutputStream(),
+                            peer.getInputStream(), peer.getOutputStream());
+                    while (!localSocket.isClosed()) {
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    System.out.println("Closed tunneled connection");
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    public static void main(String... args) throws GeneralSecurityException, IOException, OperatorCreationException, InterruptedException {
         System.out.println("Client");
 
         Socket baseSocket = new NetSocketUDT();
         baseSocket.setKeepAlive(true);
         baseSocket.connect(new InetSocketAddress("localhost", 5000));
-        Connection conn = new Connection("client", "server", baseSocket, new File("client_private.jks"),
+        PartnerConnection conn = new PartnerConnection("client", "server", baseSocket, new File("client_private.jks"),
                 new File("client_trusted.jks"), false);
 
-        conn.getOutputStream().write("You are connected to the client!\n".getBytes());
+        System.out.println("Connected to server!");
 
-        InputStream inputstream = System.in;
-        InputStreamReader inputstreamreader = new InputStreamReader(inputstream);
-        BufferedReader bufferedreader = new BufferedReader(inputstreamreader);
-
-        OutputStream outputstream = conn.getOutputStream();
-        OutputStreamWriter outputstreamwriter = new OutputStreamWriter(outputstream);
-        BufferedWriter bufferedwriter = new BufferedWriter(outputstreamwriter);
-
-        String string;
-        while ((string = bufferedreader.readLine()) != null) {
-            bufferedwriter.write(string + '\n');
-            bufferedwriter.flush();
-        }
+        Thread connectThread = new Thread(new ConnectRunnable(conn));
+        connectThread.start();
+        connectThread.join();
     }
 }
