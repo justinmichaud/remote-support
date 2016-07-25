@@ -23,7 +23,8 @@ public class Connection {
     private final static String SSL_VERSION = "TLSv1.2";
     private final static char[] keystorePassword = "1".toCharArray();
 
-    private String alias, partnerAlias;
+    public final String alias;
+    public final String partnerAlias;
 
     private SSLContext sslContext;
     private KeyStore privateKey, trustedKeys;
@@ -50,6 +51,8 @@ public class Connection {
         socket.setKeepAlive(true);
         socket.setUseClientMode(!server);
         if (server) socket.setNeedClientAuth(true);
+
+        System.out.println("Your fingerprint is " + getFingerprint());
 
         socket.startHandshake();
     }
@@ -229,6 +232,10 @@ public class Connection {
 
         sslContext = SSLContext.getInstance(SSL_VERSION);
         sslContext.init(keyManagerFactory.getKeyManagers(), new TrustManager[] {tm}, null);
+    }
+
+    public String getFingerprint() throws KeyStoreException, CertificateEncodingException, NoSuchAlgorithmException {
+        return getCertificateFingerprint((X509Certificate) privateKey.getCertificate("cert"));
     }
 
     public InputStream getInputStream() throws IOException {
