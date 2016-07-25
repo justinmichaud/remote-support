@@ -23,6 +23,8 @@ public class Server {
         Connection conn = new Connection("server", "client", baseConnection, new File("server_private.jks"),
                 new File("server_trusted.jks"), true);
 
+        conn.getOutputStream().write("You are connected to the server!\n".getBytes());
+
         InputStream inputStream = conn.getInputStream();
         InputStreamReader streamReader = new InputStreamReader(inputStream);
         BufferedReader bufferedReader = new BufferedReader(streamReader);

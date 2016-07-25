@@ -17,9 +17,12 @@ public class Client {
         System.out.println("Client");
 
         Socket baseSocket = new NetSocketUDT();
+        baseSocket.setKeepAlive(true);
         baseSocket.connect(new InetSocketAddress("localhost", 5000));
         Connection conn = new Connection("client", "server", baseSocket, new File("client_private.jks"),
                 new File("client_trusted.jks"), false);
+
+        conn.getOutputStream().write("You are connected to the client!\n".getBytes());
 
         InputStream inputstream = System.in;
         InputStreamReader inputstreamreader = new InputStreamReader(inputstream);

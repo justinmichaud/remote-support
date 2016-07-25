@@ -45,15 +45,12 @@ public class Connection {
         loadOrCreateTrustStore(trustedKeystoreFile);
         loadSSLContext();
 
-        int timeout = 60*1000;
-
-        baseSocket.setSoTimeout(timeout);
         socket = (SSLSocket) sslContext.getSocketFactory().createSocket(baseSocket,
                 baseSocket.getLocalAddress().getHostName(), baseSocket.getLocalPort(), true);
+        socket.setKeepAlive(true);
         socket.setUseClientMode(!server);
         if (server) socket.setNeedClientAuth(true);
-        socket.setKeepAlive(true);
-        socket.setSoTimeout(timeout);
+
         socket.startHandshake();
     }
 
@@ -155,10 +152,9 @@ public class Connection {
     }
 
     private static boolean prompt(String message) {
-        try (Scanner in = new Scanner(System.in)) {
-            System.out.println(message + " [y/N]");
-            return in.nextLine().equalsIgnoreCase("y");
-        }
+        Scanner in = new Scanner(System.in); //Avoid closing because main thread uses System.in
+        System.out.println(message + " [y/N]");
+        return in.nextLine().equalsIgnoreCase("y");
     }
 
     private void addTrustedCertificate(X509Certificate cert) throws KeyStoreException, IOException,
@@ -202,7 +198,6 @@ public class Connection {
                     throw new CertificateException("Certificate rejected");
                 }
             }
-
         } catch (KeyStoreException e) {
             e.printStackTrace();
             throw new CertificateException("KeystoreException");
