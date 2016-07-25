@@ -16,9 +16,10 @@ import java.net.Socket;
 import java.security.*;
 import java.security.cert.*;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Scanner;
 
-public class PartnerConnection {
+public class TlsConnection {
 
     private final static String SSL_VERSION = "TLSv1.2";
     private final static char[] keystorePassword = "1".toCharArray();
@@ -32,8 +33,8 @@ public class PartnerConnection {
 
     private SSLSocket socket;
 
-    public PartnerConnection(String alias, String partnerAlias, Socket baseSocket, File privateKeystoreFile,
-                             File trustedKeystoreFile, boolean server)
+    public TlsConnection(String alias, String partnerAlias, Socket baseSocket, File privateKeystoreFile,
+                         File trustedKeystoreFile, boolean server)
             throws GeneralSecurityException, IOException, OperatorCreationException {
         if (Security.getProvider("BC") == null)
             Security.addProvider(new BouncyCastleProvider());
@@ -241,11 +242,7 @@ public class PartnerConnection {
         return getCertificateFingerprint((X509Certificate) privateKey.getCertificate("cert"));
     }
 
-    public InputStream getInputStream() throws IOException {
-        return socket.getInputStream();
-    }
-
-    public OutputStream getOutputStream() throws IOException {
-        return socket.getOutputStream();
+    public Socket getSocket() {
+        return socket;
     }
 }
