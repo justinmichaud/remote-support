@@ -2,6 +2,7 @@ package com.justinmichaud.remotesupport.client;
 
 import com.barchart.udt.net.NetSocketUDT;
 import com.justinmichaud.remotesupport.common.Connection;
+import org.bouncycastle.operator.OperatorCreationException;
 
 import javax.net.ssl.*;
 import java.io.*;
@@ -12,13 +13,13 @@ import java.security.cert.CertificateException;
 
 public class Client {
 
-    public static void main(String... args) throws GeneralSecurityException, IOException {
+    public static void main(String... args) throws GeneralSecurityException, IOException, OperatorCreationException {
         System.out.println("Client");
 
         Socket baseSocket = new NetSocketUDT();
         baseSocket.connect(new InetSocketAddress("localhost", 5000));
-        Connection conn = new Connection(baseSocket, new File("client_private.jks"),
-                new File("client_public.jks"), new File("client_trusted.jks"), false);
+        Connection conn = new Connection("client", "server", baseSocket, new File("client_private.jks"),
+                new File("client_trusted.jks"), false);
 
         InputStream inputstream = System.in;
         InputStreamReader inputstreamreader = new InputStreamReader(inputstream);

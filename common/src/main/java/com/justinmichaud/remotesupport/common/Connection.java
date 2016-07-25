@@ -6,6 +6,7 @@ import org.bouncycastle.cert.X509v1CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 
 import javax.net.ssl.*;
@@ -13,44 +14,51 @@ import java.io.*;
 import java.math.BigInteger;
 import java.net.Socket;
 import java.security.*;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
+import java.security.cert.*;
 import java.util.Date;
+import java.util.Scanner;
 
 public class Connection {
 
+    private final static String SSL_VERSION = "TLSv1.2";
     private final static char[] keystorePassword = "1".toCharArray();
 
+    private String alias, partnerAlias;
+
     private SSLContext sslContext;
-    private KeyStore privateKey, publicKey, trustedKeys;
+    private KeyStore privateKey, trustedKeys;
+    private File trustedKeystoreFile;
 
     private SSLSocket socket;
 
-    public Connection(Socket baseSocket, File privateKeystoreFile, File publicKeystoreFile,
-                      File trustedKeystoreFile, boolean server) throws GeneralSecurityException, IOException {
+    public Connection(String alias, String partnerAlias, Socket baseSocket, File privateKeystoreFile,
+                      File trustedKeystoreFile, boolean server)
+            throws GeneralSecurityException, IOException, OperatorCreationException {
         if (Security.getProvider("BC") == null)
             Security.addProvider(new BouncyCastleProvider());
 
-        loadOrCreateKeypair(privateKeystoreFile, publicKeystoreFile);
+        this.alias = alias;
+        this.partnerAlias = partnerAlias;
+        this.trustedKeystoreFile = trustedKeystoreFile;
+
+        loadOrCreateKeypair(privateKeystoreFile);
+        loadOrCreateTrustStore(trustedKeystoreFile);
         loadSSLContext();
 
         socket = (SSLSocket) sslContext.getSocketFactory().createSocket(baseSocket,
                 baseSocket.getLocalAddress().getHostName(), baseSocket.getLocalPort(), true);
         socket.setUseClientMode(!server);
         if (server) socket.setNeedClientAuth(true);
+        socket.setKeepAlive(true);
+        socket.setSoTimeout(60*1000);
+        socket.startHandshake();
     }
 
-    private void createKeypair(File privateKeystoreFile, File publicKeystoreFile)
-            throws KeyStoreException, IOException {
-        try (
-                FileOutputStream privateOut = new FileOutputStream(privateKeystoreFile);
-                FileOutputStream publicOut = new FileOutputStream(publicKeystoreFile)
-        ) {
+    private void createKeypair(File privateKeystoreFile)
+            throws GeneralSecurityException, IOException, OperatorCreationException {
+        try (FileOutputStream privateOut = new FileOutputStream(privateKeystoreFile)) {
             privateKey = KeyStore.getInstance("JKS");
             privateKey.load(null, null);
-
-            publicKey = KeyStore.getInstance("JKS");
-            publicKey.load(null, null);
 
             KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
             keyGen.initialize(1024);
@@ -76,34 +84,128 @@ public class Connection {
 
             privateKey.setKeyEntry("cert", key.getPrivate(), keystorePassword, certs);
             privateKey.store(privateOut, keystorePassword);
-
-            publicKey.setCertificateEntry("cert", certs[0]);
-            publicKey.store(publicOut, keystorePassword);
         } catch (Exception e) {
             if (privateKeystoreFile.exists()) privateKeystoreFile.delete();
-            if (publicKeystoreFile.exists()) publicKeystoreFile.delete();
+
+            throw e;
         }
     }
 
-    private void loadKeypair(File privateKeystoreFile, File publicKeystoreFile)
+    private void loadKeypair(File privateKeystoreFile)
             throws GeneralSecurityException, IOException {
-        try (FileInputStream privateOut = new FileInputStream(privateKeystoreFile);
-             FileInputStream publicOut = new FileInputStream(publicKeystoreFile)) {
+        try (FileInputStream privateIn = new FileInputStream(privateKeystoreFile)) {
             privateKey = KeyStore.getInstance("JKS");
-            privateKey.load(privateOut, keystorePassword);
-
-            publicKey = KeyStore.getInstance("JKS");
-            publicKey.load(publicOut, keystorePassword);
+            privateKey.load(privateIn, keystorePassword);
         }
     }
 
-    private void loadOrCreateKeypair(File privateKeystoreFile, File publicKeystoreFile)
-            throws GeneralSecurityException, IOException {
+    private void loadOrCreateKeypair(File privateKeystoreFile)
+            throws GeneralSecurityException, IOException, OperatorCreationException {
         try {
-            loadKeypair(privateKeystoreFile, publicKeystoreFile);
+            loadKeypair(privateKeystoreFile);
         } catch (IOException|GeneralSecurityException e) {
-            createKeypair(privateKeystoreFile, publicKeystoreFile);
-            loadKeypair(privateKeystoreFile, publicKeystoreFile);
+            createKeypair(privateKeystoreFile);
+            loadKeypair(privateKeystoreFile);
+        }
+    }
+
+    private void createTrustStore(File trustedKeystoreFile) throws GeneralSecurityException, IOException {
+        try (FileOutputStream trustedOut = new FileOutputStream(trustedKeystoreFile)) {
+            trustedKeys = KeyStore.getInstance("JKS");
+            trustedKeys.load(null, null);
+            trustedKeys.store(trustedOut, keystorePassword);
+        }
+    }
+
+    private void loadTrustStore(File trustedKeystoreFile)
+            throws GeneralSecurityException, IOException {
+        try (FileInputStream trustedIn = new FileInputStream(trustedKeystoreFile)) {
+            trustedKeys = KeyStore.getInstance("JKS");
+            trustedKeys.load(trustedIn, keystorePassword);
+        }
+    }
+
+    private void loadOrCreateTrustStore(File trustedKeystoreFile)
+            throws GeneralSecurityException, IOException, OperatorCreationException {
+        try {
+            loadTrustStore(trustedKeystoreFile);
+        } catch (IOException|GeneralSecurityException e) {
+            createTrustStore(trustedKeystoreFile);
+            loadTrustStore(trustedKeystoreFile);
+        }
+    }
+
+    private static String getCertificateFingerprint(X509Certificate cert)
+            throws NoSuchAlgorithmException, CertificateEncodingException {
+        MessageDigest md = MessageDigest.getInstance("SHA-1");
+        byte[] der = cert.getEncoded();
+        md.update(der);
+        byte[] digest = md.digest();
+
+        StringBuilder fingerprint = new StringBuilder();
+
+        for (byte b : digest) {
+            fingerprint.append(String.format("%02x:", b));
+        }
+
+        return fingerprint.substring(0, fingerprint.length());
+    }
+
+    private static boolean prompt(String message) {
+        try (Scanner in = new Scanner(System.in)) {
+            System.out.println(message + " [y/N]");
+            return in.nextLine().equalsIgnoreCase("y");
+        }
+    }
+
+    private void addTrustedCertificate(X509Certificate cert) throws KeyStoreException, IOException,
+            CertificateException, NoSuchAlgorithmException {
+        trustedKeys.deleteEntry(partnerAlias);
+        trustedKeys.setCertificateEntry(partnerAlias, cert);
+
+        try (FileOutputStream trustedOut = new FileOutputStream(trustedKeystoreFile)) {
+            trustedKeys.store(trustedOut, keystorePassword);
+        }
+    }
+
+    private void checkCertificateTrusted(X509Certificate[] chain, String authType)
+            throws CertificateException {
+        if (chain == null || chain.length != 1)
+            throw new CertificateException("Chain Length Not Correct");
+
+        X509Certificate partnerCert = chain[0];
+
+        try {
+            java.security.cert.Certificate storedCert = trustedKeys.getCertificate(partnerAlias);
+
+            if (storedCert == null) {
+                if (prompt("This is the first time connecting to this computer. Does this fingerprint ("
+                        + getCertificateFingerprint(partnerCert)
+                        + ") match the one on the other computer?")) {
+                    addTrustedCertificate(partnerCert);
+                }
+                else {
+                    throw new CertificateException("Certificate rejected");
+                }
+            }
+            else if (!storedCert.equals(partnerCert)) {
+                if (prompt("This computer has a different identity since the last time it connected."
+                        + "Does this fingerprint ("
+                        + getCertificateFingerprint(partnerCert)
+                        + ") match the one on the other computer?")) {
+                    addTrustedCertificate(partnerCert);
+                }
+                else {
+                    throw new CertificateException("Certificate rejected");
+                }
+            }
+
+        } catch (KeyStoreException e) {
+            e.printStackTrace();
+            throw new CertificateException("KeystoreException");
+        } catch (NoSuchAlgorithmException|IOException e) {
+            e.printStackTrace();
+            throw new CertificateException("Internal error");
         }
     }
 
@@ -114,14 +216,12 @@ public class Connection {
         TrustManager tm = new X509TrustManager() {
             public void checkClientTrusted(X509Certificate[] chain, String authType)
                     throws CertificateException {
-                System.out.println("checkClientTrusted");
-                //TODO
+                checkCertificateTrusted(chain, authType);
             }
 
             public void checkServerTrusted(X509Certificate[] chain, String authType)
                     throws CertificateException {
-                System.out.println("checkServerTrusted");
-                //TODO
+                checkCertificateTrusted(chain, authType);
             }
 
             public X509Certificate[] getAcceptedIssuers() {
@@ -129,7 +229,7 @@ public class Connection {
             }
         };
 
-        sslContext = SSLContext.getInstance("TLSv1.2");
+        sslContext = SSLContext.getInstance(SSL_VERSION);
         sslContext.init(keyManagerFactory.getKeyManagers(), new TrustManager[] {tm}, null);
     }
 
