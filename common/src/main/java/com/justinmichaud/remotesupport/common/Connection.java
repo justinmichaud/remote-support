@@ -45,12 +45,15 @@ public class Connection {
         loadOrCreateTrustStore(trustedKeystoreFile);
         loadSSLContext();
 
+        int timeout = 60*1000;
+
+        baseSocket.setSoTimeout(timeout);
         socket = (SSLSocket) sslContext.getSocketFactory().createSocket(baseSocket,
                 baseSocket.getLocalAddress().getHostName(), baseSocket.getLocalPort(), true);
         socket.setUseClientMode(!server);
         if (server) socket.setNeedClientAuth(true);
         socket.setKeepAlive(true);
-        socket.setSoTimeout(60*1000);
+        socket.setSoTimeout(timeout);
         socket.startHandshake();
     }
 
