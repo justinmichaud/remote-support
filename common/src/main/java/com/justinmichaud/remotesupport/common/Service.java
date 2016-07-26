@@ -19,14 +19,17 @@ public class Service {
     protected CircularByteBuffer inBuffer, outBuffer;
     protected byte[] buf = new byte[65535];
 
-    public Service(int id) {
+    protected ServiceManager serviceManager;
+
+    public Service(int id, ServiceManager serviceManager) {
         this.id = id;
-        inBuffer = new CircularByteBuffer(CircularByteBuffer.INFINITE_SIZE);
-        outBuffer = new CircularByteBuffer(CircularByteBuffer.INFINITE_SIZE);
+        inBuffer = new CircularByteBuffer(CircularByteBuffer.INFINITE_SIZE, false);
+        outBuffer = new CircularByteBuffer(CircularByteBuffer.INFINITE_SIZE, false);
+        this.serviceManager = serviceManager;
     }
 
     public void readDataFromTunnel(int size, InputStream in) throws IOException {
-        System.out.println("Service " + id + " reading data from tunnel"); // Debug error - Not reading ------------------------------
+        System.out.println("Service " + id + " reading data from tunnel");
 
         for (int i = 0; i<size; i++) {
             inBuffer.getOutputStream().write(in.read());
@@ -35,8 +38,7 @@ public class Service {
 
     public void writeDataToTunnel(OutputStream out) throws IOException {
         int read = outBuffer.getInputStream().read(buf);
-        if (read < 0) throw new IOException("End of stream");
-        if (read == 0) return;
+        if (read <= 0) return;
 
         System.out.println("Service " + id + " writing data to tunnel");
 

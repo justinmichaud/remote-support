@@ -19,8 +19,8 @@ public class ControlService extends Service {
                     int magic = getInputStream().read();
                     if (magic == OPEN_PORT) {
                         int id = getInputStream().read();
-                        int port = (getInputStream().read()&0xFF << 8) | (getInputStream().read()&0xFF);
-                        peerConnection.openLocalPort(id, port);
+                        int port = ((getInputStream().read()&0xFF) << 8) | (getInputStream().read()&0xFF);
+                        peerConnection.openClientPort(id, port);
                     }
                     else if (magic == CLOSE_PORT) {
                         int id = getInputStream().read();
@@ -41,7 +41,7 @@ public class ControlService extends Service {
     }
 
     public ControlService(PeerConnection peerConnection) {
-        super(0);
+        super(0, peerConnection.serviceManager);
         this.peerConnection = peerConnection;
 
         readThread = new Thread(new ReadThread());

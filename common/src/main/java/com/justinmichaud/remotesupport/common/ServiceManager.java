@@ -29,14 +29,18 @@ public class ServiceManager {
 
         @Override
         public void run() {
+            System.out.println("ServiceManager ReadThread running");
             while (!baseSocket.isClosed()) {
                 try {
                     int magic = in.read();
                     if (magic == MAGIC_DATA) {
                         int id = in.read();
-                        int length = (in.read()&0xFF << 8) | (in.read()&0xFF);
+                        int length = ((in.read()&0xFF) << 8) | (in.read()&0xFF);
 
-                        getService(id).readDataFromTunnel(length, in);
+                        Service s = getService(id);
+                        while (s == null) s = getService(id); //TODO temp race condition
+                        if (s == null) throw new IOException("Unknown service " + id);
+                        s.readDataFromTunnel(length, in);
                     }
                     else {
                         throw new IOException("Unknown magic byte " + magic);
@@ -51,6 +55,7 @@ public class ServiceManager {
                     }
                 }
             }
+            System.out.println("ServiceManager ReadThread closed");
         }
     }
 
@@ -66,6 +71,7 @@ public class ServiceManager {
 
         @Override
         public void run() {
+            System.out.println("ServiceManager WriteThread started");
             while (!baseSocket.isClosed()) {
                 try {
                     synchronized (services) {
@@ -76,10 +82,14 @@ public class ServiceManager {
 
                         for (int id : servicesToRemove) {
                             System.out.println("Service " + id + " was closed - removing");
+                            if (id == 0) throw new IOException("Control service closed");
                             peerConnection.closeService(id);
                         }
                         servicesToRemove.clear();
                     }
+                    try {
+                        Thread.sleep(10);
+                    } catch (InterruptedException e) {}
                 } catch (IOException e) {
                     System.out.println("Error attempting to read service control data - closing connection");
                     e.printStackTrace();
@@ -90,6 +100,7 @@ public class ServiceManager {
                     }
                 }
             }
+            System.out.println("ServiceManager WriteThread closed");
         }
     }
 
@@ -116,14 +127,12 @@ public class ServiceManager {
 
     public Service addService(Service s) throws IOException {
         System.out.println("Adding local service " + s.id);
-        synchronized (services) {
-            if (services.containsKey(s.id)) {
-                System.out.println("Warning: overwriting existing service!");
-                removeService(s.id);
-            }
-            services.put(s.id, s);
-            return s;
+        if (services.containsKey(s.id)) {
+            System.out.println("Warning: overwriting existing service!");
+            removeService(s.id);
         }
+        services.put(s.id, s);
+        return s;
     }
 
     public void removeService(int id) throws IOException {
@@ -132,5 +141,9 @@ public class ServiceManager {
             getService(id).close();
             services.remove(id);
         }
+    }
+
+    public ControlService getControlService() {
+        return (ControlService) services.get(0);
     }
 }

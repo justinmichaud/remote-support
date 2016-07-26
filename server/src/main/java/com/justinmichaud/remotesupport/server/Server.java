@@ -22,7 +22,7 @@ public class Server {
 
         Socket baseConnection = serverSocket.accept();
         PeerConnection conn = new PeerConnection("server", "client", baseConnection, true);
-        conn.openPort(1, 6000, 4000);
+        conn.openServerPort(1, 6000, 4000);
 
         System.out.println("Connected to client!");
 

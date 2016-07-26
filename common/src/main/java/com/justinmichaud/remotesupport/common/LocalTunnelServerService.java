@@ -26,8 +26,13 @@ public class LocalTunnelServerService extends Service {
         @Override
         public void run() {
             try {
-                while (running) out.write(in.read());
+                while(running) {
+                    int b = in.read();
+                    if (b < 0) throw new IOException("End of Stream");
+                    out.write(b);
+                }
             } catch (IOException e) {
+                e.printStackTrace();
                 running = false;
             }
         }
@@ -35,12 +40,13 @@ public class LocalTunnelServerService extends Service {
 
     private class AcceptThread implements Runnable {
 
-        private final int port;
+        private final int localPort, remotePort;
         private final ServerSocket localServer;
 
-        public AcceptThread(int port) throws IOException {
-            this.port = port;
-            localServer = new ServerSocket(port);
+        public AcceptThread(int localPort, int remotePort) throws IOException {
+            this.localPort = localPort;
+            this.remotePort = remotePort;
+            localServer = new ServerSocket(localPort);
         }
 
         @Override
@@ -52,13 +58,14 @@ public class LocalTunnelServerService extends Service {
                 } catch (IOException e) { continue; }
 
                 try {
+                    serviceManager.getControlService().requestPeerOpenPort(LocalTunnelServerService.this, remotePort);
                     connect(localSocket);
                 } catch (IOException e) {
                     e.printStackTrace();
                     continue;
                 }
 
-                System.out.println("Accepted new tunneled connection on port " + port + " (id: " + id + ")");
+                System.out.println("Accepted new tunneled connection on port " + localPort + " (id: " + id + ")");
 
                 while (inputThread.isAlive() && outputThread.isAlive()) {
                     try {
@@ -66,17 +73,23 @@ public class LocalTunnelServerService extends Service {
                     } catch (InterruptedException e) {}
                 }
 
-                System.out.println("Closed tunneled connection (id: " + id + ")");
+                try {
+                    serviceManager.getControlService().requestPeerCloseService(LocalTunnelServerService.this.id);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
 
+                System.out.println("Closed tunneled connection (id: " + id + ")");
             }
+            System.out.println("Server Tunnel accept thread closed (id: " + id + ")");
         }
     }
 
-    public LocalTunnelServerService(int id, int port)
+    public LocalTunnelServerService(int id, ServiceManager serviceManager, int localPort, int remotePort)
             throws IOException {
-        super(id);
+        super(id, serviceManager);
 
-        connectThread = new Thread(new AcceptThread(port));
+        connectThread = new Thread(new AcceptThread(localPort, remotePort));
         connectThread.setDaemon(true);
         connectThread.start();
     }

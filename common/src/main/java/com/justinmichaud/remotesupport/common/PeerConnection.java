@@ -10,7 +10,7 @@ import java.security.GeneralSecurityException;
 public class PeerConnection {
 
     private TlsConnection tlsConnection;
-    private ServiceManager serviceManager;
+    public ServiceManager serviceManager;
     private ControlService controlService;
 
     public PeerConnection(String alias, String partnerAlias, Socket baseSocket, boolean server)
@@ -23,15 +23,14 @@ public class PeerConnection {
         serviceManager.addService(controlService);
     }
 
-    public void openPort(int id, int localPort, int remotePort) throws IOException {
-        System.out.println("Opening Port " + localPort + "->" + remotePort);
-        Service service = openLocalPort(id, localPort);
-        controlService.requestPeerOpenPort(service, remotePort);
+    public Service openServerPort(int id, int localPort, int remotePort) throws IOException {
+        System.out.println("Opening server Port " + localPort + "->" + remotePort);
+        return serviceManager.addService(new LocalTunnelServerService(id, serviceManager, localPort, remotePort));
     }
 
-    public Service openLocalPort(int id, int localPort) throws IOException {
-        System.out.println("Opening local port: " + localPort + " (id: " + id + ")");
-        return serviceManager.addService(new LocalTunnelServerService(id, localPort));
+    public Service openClientPort(int id, int localPort) throws IOException {
+        System.out.println("Opening client port: " + localPort + " (id: " + id + ")");
+        return serviceManager.addService(new LocalTunnelClientService(id, serviceManager, localPort));
     }
 
     public void closeService(int id) throws IOException {

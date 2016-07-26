@@ -25,7 +25,11 @@ public class LocalTunnelClientService extends Service {
         @Override
         public void run() {
             try {
-                while (running) out.write(in.read());
+                while (running) {
+                    int b = in.read();
+                    if (b < 0) throw new IOException("End of Stream");
+                    out.write(b);
+                }
             } catch (IOException e) {
                 running = false;
             }
@@ -69,9 +73,9 @@ public class LocalTunnelClientService extends Service {
         }
     }
 
-    public LocalTunnelClientService(int id, int port)
+    public LocalTunnelClientService(int id, ServiceManager serviceManager, int port)
             throws IOException {
-        super(id);
+        super(id ,serviceManager);
 
         connectThread = new Thread(new ConnectThread(port));
         connectThread.setDaemon(true);
