@@ -1,124 +1,89 @@
 package com.justinmichaud.remotesupport.common;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class ServiceManager {
-    // Magic values for control packets for out datastreams
-    public final static int MAGIC_DATA = 0;
 
-    private final PeerConnection peerConnection;
-    private final Socket baseSocket;
+    public final WorkerThreadManager workerThreadManager;
+    public final ControlService controlService;
 
-    private final HashMap<Integer, Service> services = new HashMap<>();
+    private final Logger logger;
 
-    private final Thread readThread, writeThread;
+    private final Socket peerSocket;
+    private final WorkerThreadManager.WorkerThreadGroup workerThreadGroup;
+    private final ConcurrentHashMap<Integer, Service> services = new ConcurrentHashMap<>();
+    private final CircularByteBuffer inputBuffer, outputBuffer;
 
-    // Thread to read data from the tunnel and send it to services
-    private class ReadThread implements Runnable {
+    private class EventLoopPayload extends WorkerThreadManager.WorkerThreadPayload {
 
-        private InputStream in;
+        private void handleIncoming() throws IOException {
+            if (inputBuffer.getAvailable() <= 3) return;
+            InputStream in = inputBuffer.getInputStream();
+            in.mark(3);
 
-        public ReadThread(InputStream in) {
-            this.in = in;
+            int id = in.read();
+            int length = ((in.read()&0xFF) << 8) | (in.read()&0xFF);
+
+            if (inputBuffer.getAvailable() < 3 + length) {
+                in.reset();
+                return;
+            }
+
+            Service s = getService(id);
+            if (s == null) {
+                logger.error("Unknown service id: {}. Skipping.", id);
+                long skipped = 0;
+                while (skipped < length)
+                    skipped += in.skip(length - skipped);
+            }
+            else s.readDataFromTunnel(length, in);
+        }
+
+        private void handleOutgoing() throws IOException {
+            for (Service s : services.values()) {
+                s.writeDataToTunnel(outputBuffer.getOutputStream());
+            }
         }
 
         @Override
-        public void run() {
-            System.out.println("ServiceManager ReadThread running");
-            while (!baseSocket.isClosed()) {
-                try {
-                    int magic = in.read();
-                    if (magic == MAGIC_DATA) {
-                        int id = in.read();
-                        int length = ((in.read()&0xFF) << 8) | (in.read()&0xFF);
-
-                        Service s = getService(id);
-                        while (s == null) s = getService(id); //TODO temp race condition
-                        if (s == null) throw new IOException("Unknown service " + id);
-                        s.readDataFromTunnel(length, in);
-                    }
-                    else {
-                        throw new IOException("Unknown magic byte " + magic);
-                    }
-                } catch (IOException e) {
-                    System.out.println("Error attempting to write service control data - closing connection");
-                    e.printStackTrace();
-                    try {
-                        baseSocket.close();
-                    } catch (IOException e1) {
-                        e1.printStackTrace();
-                    }
-                }
-            }
-            System.out.println("ServiceManager ReadThread closed");
+        public void tick() throws Exception {
+            if (getService(0) != controlService) throw new IOException("The control service is not running");
+            //These are nonblocking
+            handleIncoming();
+            handleOutgoing();
         }
     }
 
-    // Thread to read data from services and write it to the tunnel
-    private class WriteThread implements Runnable {
+    public ServiceManager(Socket peerSocket) throws IOException {
+        this.logger = LoggerFactory.getLogger("Service Manager");
+        this.peerSocket = peerSocket;
 
-        private OutputStream out;
-        private ArrayList<Integer> servicesToRemove = new ArrayList<Integer>();
+        inputBuffer = new CircularByteBuffer(CircularByteBuffer.INFINITE_SIZE, false);
+        outputBuffer = new CircularByteBuffer(CircularByteBuffer.INFINITE_SIZE, false);
 
-        public WriteThread(OutputStream out) {
-            this.out = out;
-        }
+        Runnable endConnection = () -> {
+            try {
+                peerSocket.close();
+            } catch (IOException e) {}
+        };
 
-        @Override
-        public void run() {
-            System.out.println("ServiceManager WriteThread started");
-            while (!baseSocket.isClosed()) {
-                try {
-                    synchronized (services) {
-                        for (Service s : services.values()) {
-                            if (!s.isOpen()) servicesToRemove.add(s.id);
-                            else s.writeDataToTunnel(out);
-                        }
+        workerThreadManager = new WorkerThreadManager(endConnection);
 
-                        for (int id : servicesToRemove) {
-                            System.out.println("Service " + id + " was closed - removing");
-                            if (id == 0) throw new IOException("Control service closed");
-                            peerConnection.closeService(id);
-                        }
-                        servicesToRemove.clear();
-                    }
-                    try {
-                        Thread.sleep(10);
-                    } catch (InterruptedException e) {}
-                } catch (IOException e) {
-                    System.out.println("Error attempting to read service control data - closing connection");
-                    e.printStackTrace();
-                    try {
-                        baseSocket.close();
-                    } catch (IOException e1) {
-                        e1.printStackTrace();
-                    }
-                }
-            }
-            System.out.println("ServiceManager WriteThread closed");
-        }
-    }
+        controlService = new ControlService(this);
+        services.put(0, controlService);
 
-    public ServiceManager(PeerConnection peerConnection, Socket baseSocket) throws IOException {
-        this.peerConnection = peerConnection;
-        this.baseSocket = baseSocket;
-
-        readThread = new Thread(new ReadThread(baseSocket.getInputStream()));
-        readThread.setDaemon(true);
-        readThread.start();
-
-        writeThread = new Thread(new WriteThread(baseSocket.getOutputStream()));
-        writeThread.setDaemon(true);
-        writeThread.start();
-    }
-
-    public Iterable<Service> getServices() {
-        return services.values();
+        workerThreadGroup = workerThreadManager.makeGroup("Service Manager", endConnection);
+        workerThreadGroup.addWorkerThread(new InputOutputStreamPipePayload(peerSocket.getInputStream(),
+                inputBuffer.getOutputStream(), false));
+        workerThreadGroup.addWorkerThread(new InputOutputStreamPipePayload(outputBuffer.getInputStream(),
+                peerSocket.getOutputStream(), false));
+        workerThreadGroup.addWorkerThread(new EventLoopPayload());
     }
 
     public Service getService(int id) {
@@ -126,24 +91,35 @@ public class ServiceManager {
     }
 
     public Service addService(Service s) throws IOException {
-        System.out.println("Adding local service " + s.id);
+        logger.info("Adding local service {}", s.id);
+
+        if (s.id == 0)
+            throw new IllegalArgumentException("Cannot add service with id 0 - this is reserved by the control service");
+
         if (services.containsKey(s.id)) {
-            System.out.println("Warning: overwriting existing service!");
-            removeService(s.id);
+            logger.warn("Warning: overwriting existing service!");
+            stopService(s.id);
         }
         services.put(s.id, s);
         return s;
     }
 
-    public void removeService(int id) throws IOException {
-        System.out.println("Removing local service " + id);
+    public void stopService(int id) throws IOException {
+        logger.info("Stopping local service " + id);
         synchronized (services) {
-            getService(id).close();
-            services.remove(id);
+            getService(id).stop();
+            removeService(id);
         }
     }
 
-    public ControlService getControlService() {
-        return (ControlService) services.get(0);
+    public void removeService(int id) {
+        logger.debug("Removing local service " + id);
+        if (id == 0) {
+            logger.info("Control service stopped - ending connection");
+            try {
+                peerSocket.close();
+            } catch (IOException e) {}
+        }
+        services.remove(id);
     }
 }

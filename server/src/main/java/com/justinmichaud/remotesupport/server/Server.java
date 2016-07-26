@@ -29,6 +29,8 @@ public class Server {
         while (conn.isOpen()) {
             Thread.sleep(1000);
         }
+
+        System.out.println("Connection closed.");
     }
 
 }

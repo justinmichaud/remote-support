@@ -8,119 +8,66 @@ import java.net.Socket;
 
 public class LocalTunnelServerService extends Service {
 
-    private PipeRunnable inRunnable, outRunnable;
-    private Thread inputThread, outputThread, connectThread;
+    private class ConnectPayload extends WorkerThreadManager.WorkerThreadPayload {
 
-    private class PipeRunnable implements Runnable {
-
-        public volatile boolean running = true;
-
-        private InputStream in;
-        private OutputStream out;
-
-        public PipeRunnable(InputStream in, OutputStream out) {
-            this.in = in;
-            this.out = out;
-        }
-
-        @Override
-        public void run() {
-            try {
-                while(running) {
-                    int b = in.read();
-                    if (b < 0) throw new IOException("End of Stream");
-                    out.write(b);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-                running = false;
-            }
-        }
-    }
-
-    private class AcceptThread implements Runnable {
-
-        private final int localPort, remotePort;
         private final ServerSocket localServer;
+        private final int localPort, remotePort;
 
-        public AcceptThread(int localPort, int remotePort) throws IOException {
+        private volatile boolean connected = false;
+        private WorkerThreadManager.WorkerThreadGroup connectedGroup;
+
+        public ConnectPayload(int localPort, int remotePort) throws IOException {
             this.localPort = localPort;
             this.remotePort = remotePort;
             localServer = new ServerSocket(localPort);
         }
 
         @Override
-        public void run() {
-            while (isOpen()) {
-                Socket localSocket;
-                try {
-                    localSocket = localServer.accept();
-                } catch (IOException e) { continue; }
+        public void tick() throws Exception {
+            Socket localSocket;
+            try {
+                localSocket = localServer.accept();
+            } catch (IOException e) { return; }
 
-                try {
-                    serviceManager.getControlService().requestPeerOpenPort(LocalTunnelServerService.this, remotePort);
-                    connect(localSocket);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                    continue;
-                }
+            serviceManager.controlService.requestPeerOpenPort(LocalTunnelServerService.this, remotePort);
 
-                System.out.println("Accepted new tunneled connection on port " + localPort + " (id: " + id + ")");
-
-                while (inputThread.isAlive() && outputThread.isAlive()) {
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException e) {}
-                }
-
-                try {
-                    serviceManager.getControlService().requestPeerCloseService(LocalTunnelServerService.this.id);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-
-                System.out.println("Closed tunneled connection (id: " + id + ")");
+            try {
+                connectedGroup =
+                        serviceManager.workerThreadManager.makeGroup("Local Tunnel Server Connection", () -> connected = false);
+                connectedGroup.addWorkerThread(new InputOutputStreamPipePayload(localSocket.getInputStream(),
+                        getOutputStream(), false));
+                connectedGroup.addWorkerThread(new InputOutputStreamPipePayload(getInputStream(),
+                        localSocket.getOutputStream(), false));
+            } catch (IOException e) {
+                logger.error("Error trying to accept from local port {}: {}", localPort, e);
+                return;
             }
-            System.out.println("Server Tunnel accept thread closed (id: " + id + ")");
+
+            connected = true;
+            logger.info("Created new tunneled server connection on port {}", localPort);
+
+            while (connected) {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {}
+            }
+
+            serviceManager.controlService.requestPeerCloseService(LocalTunnelServerService.this.id);
+            logger.info("Closed tunneled server connection on port {}", localPort);
+        }
+
+        @Override
+        public void stop(WorkerThreadManager.WorkerThreadGroup group) {
+            logger.debug("Being asked to close tunneled server on port {}", localPort);
+            super.stop(group);
+            if (connectedGroup != null) connectedGroup.stop();
         }
     }
 
     public LocalTunnelServerService(int id, ServiceManager serviceManager, int localPort, int remotePort)
             throws IOException {
         super(id, serviceManager);
-
-        connectThread = new Thread(new AcceptThread(localPort, remotePort));
-        connectThread.setDaemon(true);
-        connectThread.start();
-    }
-
-    private void connect(Socket local) throws IOException {
-        closeConnection();
-
-        inputThread = new Thread(new PipeRunnable(local.getInputStream(), super.getOutputStream()));
-        inputThread.setDaemon(true);
-        outputThread = new Thread(new PipeRunnable(super.getInputStream(), local.getOutputStream()));
-        outputThread.setDaemon(true);
-
-        inputThread.start();
-        outputThread.start();
-    }
-
-    public void closeConnection() {
-        if (inRunnable != null) {
-            while (inputThread.isAlive()) inRunnable.running = false;
-            inRunnable = null;
-            inputThread = null;
-        }
-        if (outRunnable != null) {
-            while (outputThread.isAlive()) outRunnable.running = false;
-            outRunnable = null;
-            outputThread = null;
-        }
-    }
-
-    public void close() throws IOException {
-        closeConnection();
-        super.close();
+        System.out.println("Opening server port " + localPort + " -> " + remotePort);
+        workerThreadGroup.addWorkerThread(new ConnectPayload(localPort, remotePort));
     }
 }

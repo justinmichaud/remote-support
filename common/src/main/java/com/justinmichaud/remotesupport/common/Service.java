@@ -1,11 +1,14 @@
 package com.justinmichaud.remotesupport.common;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.*;
 
 /**
  * Represents a bidirectional stream of data over a single stream
  */
-public class Service {
+public abstract class Service {
 
     public final static int MAX_ID = 255;
 
@@ -16,34 +19,41 @@ public class Service {
     // In buffer is read by our inputstream, out buffer is written to by our outputstream
     // read/write to and from tunnel are nonblocking
 
-    protected CircularByteBuffer inBuffer, outBuffer;
-    protected byte[] buf = new byte[65535];
+    protected final CircularByteBuffer inBuffer, outBuffer;
+    protected final byte[] buf = new byte[65535];
 
-    protected ServiceManager serviceManager;
+    protected final ServiceManager serviceManager;
+    protected final WorkerThreadManager.WorkerThreadGroup workerThreadGroup;
+
+    protected final Logger logger;
 
     public Service(int id, ServiceManager serviceManager) {
+        if (id > MAX_ID) throw new IllegalArgumentException("Id is greater than max service id");
+
         this.id = id;
+        this.serviceManager = serviceManager;
+        logger = LoggerFactory.getLogger("Service " + id + ": " + getClass().getSimpleName());
+
+        logger.debug("Starting service");
+
+        workerThreadGroup = serviceManager.workerThreadManager.makeGroup(getClass().getName(), this::stop);
         inBuffer = new CircularByteBuffer(CircularByteBuffer.INFINITE_SIZE, false);
         outBuffer = new CircularByteBuffer(CircularByteBuffer.INFINITE_SIZE, false);
-        this.serviceManager = serviceManager;
     }
 
     public void readDataFromTunnel(int size, InputStream in) throws IOException {
-        System.out.println("Service " + id + " reading data from tunnel");
-
+        logger.debug("Reading data from tunnel");
         for (int i = 0; i<size; i++) {
             inBuffer.getOutputStream().write(in.read());
         }
     }
 
     public void writeDataToTunnel(OutputStream out) throws IOException {
+        logger.debug("Writing data to tunnel");
         int read = outBuffer.getInputStream().read(buf);
         if (read <= 0) return;
 
-        System.out.println("Service " + id + " writing data to tunnel");
-
-        // [1 byte - Magic] [1 byte - service id] [2 bytes - size] [data]
-        out.write(ServiceManager.MAGIC_DATA);
+        // [1 byte - service id] [2 bytes - size] [data]
         out.write(id);
         out.write((read >> 8) & 0xFF);
         out.write(read & 0xFF);
@@ -60,14 +70,13 @@ public class Service {
         return inBuffer.getInputStream();
     }
 
-    public void close() throws IOException {
-        System.out.println("Closing service - internal - " + id);
-        getOutputStream().close();
-        getInputStream().close();
-    }
-
-    public boolean isOpen() {
-        return !inBuffer.outputStreamClosed && !inBuffer.inputStreamClosed
-                && !outBuffer.outputStreamClosed && !outBuffer.inputStreamClosed;
+    public void stop() {
+        logger.debug("Stopping service");
+        workerThreadGroup.stop();
+        serviceManager.removeService(id);
+        try {
+            getInputStream().close();
+            getOutputStream().close();
+        } catch (IOException e) {}
     }
 }
