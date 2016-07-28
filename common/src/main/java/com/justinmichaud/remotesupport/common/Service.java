@@ -34,9 +34,7 @@ public abstract class Service {
         this.serviceManager = serviceManager;
         logger = LoggerFactory.getLogger("Service " + id + ": " + getClass().getSimpleName());
 
-        logger.debug("Starting service");
-
-        workerThreadGroup = serviceManager.workerThreadManager.makeGroup(getClass().getName(), this::stop);
+        workerThreadGroup = serviceManager.workerThreadManager.makeGroup("Service " + id, this::stop);
         inBuffer = new CircularByteBuffer(CircularByteBuffer.INFINITE_SIZE, false);
         outBuffer = new CircularByteBuffer(CircularByteBuffer.INFINITE_SIZE, false);
     }
@@ -71,12 +69,27 @@ public abstract class Service {
     }
 
     public void stop() {
+        if (!isRunning()) return;
+
         logger.debug("Stopping service");
         workerThreadGroup.stop();
-        serviceManager.removeService(id);
         try {
-            getInputStream().close();
-            getOutputStream().close();
-        } catch (IOException e) {}
+            if (!outBuffer.outputStreamClosed) outBuffer.getOutputStream().close();
+            if (!outBuffer.inputStreamClosed) outBuffer.getInputStream().close();
+            if (!inBuffer.outputStreamClosed) inBuffer.getOutputStream().close();
+            if (!inBuffer.inputStreamClosed) inBuffer.getInputStream().close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        serviceManager.removeStoppedService(this);
+    }
+
+    public boolean isRunning() {
+        return (workerThreadGroup.isRunning()
+                || !inBuffer.inputStreamClosed
+                || !inBuffer.outputStreamClosed
+                || !outBuffer.inputStreamClosed
+                || !outBuffer.outputStreamClosed);
     }
 }

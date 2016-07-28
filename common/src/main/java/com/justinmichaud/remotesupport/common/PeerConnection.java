@@ -12,8 +12,8 @@ import java.security.GeneralSecurityException;
 public class PeerConnection {
 
     public final ServiceManager serviceManager;
-
     private final TlsConnection tlsConnection;
+
     private final Logger logger;
 
     public PeerConnection(String alias, String partnerAlias, Socket baseSocket, boolean server)
@@ -25,15 +25,32 @@ public class PeerConnection {
         tlsConnection = new TlsConnection(alias, partnerAlias, baseSocket,
                 new File(alias.replaceAll("\\W+", "") + "_private.jks"),
                 new File(alias.replaceAll("\\W+", "") + "_trusted.jks"), server);
-        serviceManager = new ServiceManager(tlsConnection.getSocket());
+        serviceManager = new ServiceManager(tlsConnection.getSocket(), this::onStopped);
     }
 
     public void openServerPort(int id, int localPort, int remotePort) throws IOException {
         serviceManager.addService(new LocalTunnelServerService(id, serviceManager, localPort, remotePort));
     }
 
-    public boolean isOpen() {
-        return !tlsConnection.getSocket().isClosed();
+    public boolean isRunning() {
+        return serviceManager.isRunning() || !tlsConnection.getSocket().isClosed();
     }
 
+    private void onStopped() {
+        if (!isRunning()) return;
+
+        try {
+            tlsConnection.getSocket().close();
+        } catch (IOException e) {
+            logger.error("Error closing tls connection:", e);
+        }
+    }
+
+    public void stop() {
+        if (!isRunning()) return;
+
+        serviceManager.stop();
+        onStopped();
+
+    }
 }

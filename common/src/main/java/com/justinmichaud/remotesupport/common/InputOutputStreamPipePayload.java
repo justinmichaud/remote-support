@@ -15,6 +15,7 @@ public class InputOutputStreamPipePayload extends WorkerThreadManager.WorkerThre
     }
 
     public InputOutputStreamPipePayload(InputStream in, OutputStream out, boolean blocking) {
+        super("InputOutputStream Pipe");
         this.in = in;
         this.out = out;
         this.blocking = blocking;

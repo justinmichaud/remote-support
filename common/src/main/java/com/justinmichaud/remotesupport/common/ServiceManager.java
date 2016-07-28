@@ -20,7 +20,13 @@ public class ServiceManager {
     private final ConcurrentHashMap<Integer, Service> services = new ConcurrentHashMap<>();
     private final CircularByteBuffer inputBuffer, outputBuffer;
 
+    private final Runnable onServiceManagerStopped;
+
     private class EventLoopPayload extends WorkerThreadManager.WorkerThreadPayload {
+
+        public EventLoopPayload() {
+            super("Service Manager Event Loop");
+        }
 
         private void handleIncoming() throws IOException {
             if (inputBuffer.getAvailable() <= 3) return;
@@ -53,32 +59,26 @@ public class ServiceManager {
 
         @Override
         public void tick() throws Exception {
-            if (getService(0) != controlService) throw new IOException("The control service is not running");
             //These are nonblocking
             handleIncoming();
             handleOutgoing();
         }
     }
 
-    public ServiceManager(Socket peerSocket) throws IOException {
-        this.logger = LoggerFactory.getLogger("Service Manager");
+    public ServiceManager(Socket peerSocket, Runnable onServiceManagerStopped) throws IOException {
+        this.logger = LoggerFactory.getLogger("[Service Manager]");
         this.peerSocket = peerSocket;
+        this.onServiceManagerStopped = onServiceManagerStopped;
 
         inputBuffer = new CircularByteBuffer(CircularByteBuffer.INFINITE_SIZE, false);
         outputBuffer = new CircularByteBuffer(CircularByteBuffer.INFINITE_SIZE, false);
 
-        Runnable endConnection = () -> {
-            try {
-                peerSocket.close();
-            } catch (IOException e) {}
-        };
-
-        workerThreadManager = new WorkerThreadManager(endConnection);
+        workerThreadManager = new WorkerThreadManager(this::stop);
 
         controlService = new ControlService(this);
         services.put(0, controlService);
 
-        workerThreadGroup = workerThreadManager.makeGroup("Service Manager", endConnection);
+        workerThreadGroup = workerThreadManager.makeGroup("Service Manager", this::stop);
         workerThreadGroup.addWorkerThread(new InputOutputStreamPipePayload(peerSocket.getInputStream(),
                 inputBuffer.getOutputStream(), false));
         workerThreadGroup.addWorkerThread(new InputOutputStreamPipePayload(outputBuffer.getInputStream(),
@@ -97,29 +97,39 @@ public class ServiceManager {
             throw new IllegalArgumentException("Cannot add service with id 0 - this is reserved by the control service");
 
         if (services.containsKey(s.id)) {
-            logger.warn("Warning: overwriting existing service!");
-            stopService(s.id);
+            throw new RuntimeException("Overwriting existing service!");
         }
+
         services.put(s.id, s);
         return s;
     }
 
-    public void stopService(int id) throws IOException {
-        logger.info("Stopping local service " + id);
-        synchronized (services) {
-            getService(id).stop();
-            removeService(id);
+    public void removeStoppedService(Service stopped) {
+        Service s = getService(stopped.id);
+        if (s == null)
+            throw new RuntimeException("Error removing stopped service " + stopped.id + " - Service does not exist");
+        else if (s != stopped)
+            throw new RuntimeException("Error removing stopped service " + stopped.id + " - Service id does not match");
+        else if (s.isRunning())
+            throw new RuntimeException("Error removing stopped service " + stopped.id + " - Service is still running");
+
+        if (s.id == 0) {
+            logger.debug("Removing control service");
+            stop();
         }
+
+        services.remove(s.id);
     }
 
-    public void removeService(int id) {
-        logger.debug("Removing local service " + id);
-        if (id == 0) {
-            logger.info("Control service stopped - ending connection");
-            try {
-                peerSocket.close();
-            } catch (IOException e) {}
-        }
-        services.remove(id);
+    public void stop() {
+        if (!isRunning()) return;
+        logger.debug("Stopping service manager");
+
+        services.values().forEach(Service::stop);
+        if (onServiceManagerStopped != null) onServiceManagerStopped.run();
+    }
+
+    public boolean isRunning() {
+        return (services.size() > 0);
     }
 }

@@ -12,11 +12,12 @@ public class LocalTunnelClientService extends Service {
         private WorkerThreadManager.WorkerThreadGroup connectedGroup;
 
         public ConnectPayload(int port) {
+            super("Local Tunnel Client Connector");
             this.port = port;
         }
 
         @Override
-        public void tick() {
+        public void tick() throws IOException {
             Socket localSocket;
             try {
                 localSocket = new Socket("localhost", port);
@@ -24,32 +25,35 @@ public class LocalTunnelClientService extends Service {
 
             try {
                 connectedGroup =
-                        serviceManager.workerThreadManager.makeGroup("Local Tunnel Connection", () -> connected = false);
+                        serviceManager.workerThreadManager.makeGroup("Local Tunnel Client Connection", () -> connected = false);
+                connected = true;
                 connectedGroup.addWorkerThread(new InputOutputStreamPipePayload(localSocket.getInputStream(),
                         getOutputStream(), false));
                 connectedGroup.addWorkerThread(new InputOutputStreamPipePayload(getInputStream(),
                         localSocket.getOutputStream(), false));
             } catch (IOException e) {
                 logger.error("Error trying to connect to local port {}: {}", port, e);
+                if (connectedGroup != null) connectedGroup.stop();
                 return;
             }
 
-            connected = true;
             logger.info("Created new tunneled connection on port {}", port);
 
             while (connected) {
                 try {
                     Thread.sleep(100);
-                } catch (InterruptedException e) {}
+                } catch (InterruptedException e) {
+                    logger.debug("Interrupted while waiting for connection to end");
+                    if (connectedGroup != null) connectedGroup.stop();
+                }
             }
 
+            localSocket.close();
             logger.info("Closed tunneled connection on port {}", port);
         }
 
         @Override
-        public void stop(WorkerThreadManager.WorkerThreadGroup group) {
-            logger.debug("Being asked to close tunneled connection on port {}", port);
-            super.stop(group);
+        public void stop() {
             if (connectedGroup != null) connectedGroup.stop();
         }
     }
@@ -57,7 +61,7 @@ public class LocalTunnelClientService extends Service {
     public LocalTunnelClientService(int id, ServiceManager serviceManager, int port)
             throws IOException {
         super(id, serviceManager);
-        System.out.println("Allowing remote partner to send data to port " + port);
+        logger.info("Allowing remote partner to send data to port " + port);
         workerThreadGroup.addWorkerThread(new ConnectPayload(port));
     }
 }

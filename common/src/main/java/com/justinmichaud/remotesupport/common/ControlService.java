@@ -8,22 +8,27 @@ public class ControlService extends Service {
     public static final int CLOSE_PORT = 1;
 
     private class ControlPayload extends WorkerThreadManager.WorkerThreadPayload {
+
+        public ControlPayload() {
+            super("Control Service Read Thread");
+        }
+
         @Override
         public void tick() throws Exception {
             int magic = getInputStream().read();
             if (magic == OPEN_PORT) {
                 int id = getInputStream().read();
                 int port = ((getInputStream().read()&0xFF) << 8) | (getInputStream().read()&0xFF);
-                logger.info("Peer requested that we open port {} on service {}", port, id);
+                logger.debug("Peer requested that we open port {} on service {}", port, id);
                 serviceManager.addService(new LocalTunnelClientService(id, serviceManager, port));
             }
             else if (magic == CLOSE_PORT) {
                 int id = getInputStream().read();
-                logger.info("Peer requested that we stop service {}", id);
-                serviceManager.stopService(id);
+                logger.debug("Peer requested that we stop service {}", id);
+                serviceManager.getService(id).stop();
             }
             else {
-                throw new IOException("Unknown magic number " + magic);
+                throw new IOException("Control Service - Unknown magic number " + magic);
             }
         }
     }

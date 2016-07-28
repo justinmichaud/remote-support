@@ -26,7 +26,7 @@ public class Client {
 
         System.out.println("Connected to server!");
 
-        while (conn.isOpen()) {
+        while (conn.isRunning()) {
             Thread.sleep(1000);
         }
 
