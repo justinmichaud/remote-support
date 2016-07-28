@@ -28,6 +28,8 @@ public class Client {
 
         while (conn.isRunning()) {
             Thread.sleep(1000);
+            baseSocket.close();
+            //conn.serviceManager.controlService.requestPeerCloseService(20);
         }
 
         System.out.println("Connection closed.");

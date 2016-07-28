@@ -115,6 +115,11 @@ public class WorkerThreadManager {
             this.thread = new Thread(new WorkerThreadRunnable());
             this.thread.setName(name);
             this.thread.setDaemon(false); //TODO Temporary, to make sure that all threads close
+            this.thread.setUncaughtExceptionHandler((t, e) -> {
+                logger.debug("Uncaught exception in thread " + t.getName() + ":", e);
+                System.out.println("***Exiting due to an uncaught exception!***");
+                System.exit(1);
+            });
             this.thread.start();
         }
 

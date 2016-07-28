@@ -22,6 +22,7 @@ public class LocalTunnelServerService extends Service {
             this.localPort = localPort;
             this.remotePort = remotePort;
             localServer = new ServerSocket(localPort);
+            localServer.setSoTimeout(100);
         }
 
         @Override

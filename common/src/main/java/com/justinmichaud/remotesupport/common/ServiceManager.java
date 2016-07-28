@@ -107,18 +107,19 @@ public class ServiceManager {
     public void removeStoppedService(Service stopped) {
         Service s = getService(stopped.id);
         if (s == null)
-            throw new RuntimeException("Error removing stopped service " + stopped.id + " - Service does not exist");
+            logger.debug("Error removing stopped service " + stopped.id + " - Service does not exist");
         else if (s != stopped)
-            throw new RuntimeException("Error removing stopped service " + stopped.id + " - Service id does not match");
+            logger.debug("Error removing stopped service " + stopped.id + " - Service id does not match");
         else if (s.isRunning())
-            throw new RuntimeException("Error removing stopped service " + stopped.id + " - Service is still running");
+            logger.debug("Error removing stopped service " + stopped.id + " - Service is still running");
+        else {
+            services.remove(s.id);
 
-        if (s.id == 0) {
-            logger.debug("Removing control service");
-            stop();
+            if (s.id == 0) {
+                logger.debug("Removing control service");
+                stop();
+            }
         }
-
-        services.remove(s.id);
     }
 
     public void stop() {
