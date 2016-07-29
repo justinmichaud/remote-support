@@ -37,9 +37,9 @@ public class LocalTunnelServerService extends Service {
                         serviceManager.workerThreadManager.makeGroup("Local Tunnel Server Connection", () -> connected = false);
                 connected = true;
                 connectedGroup.addWorkerThread(new InputOutputStreamPipePayload(localSocket.getInputStream(),
-                        getOutputStream(), false));
+                        getOutputStream()));
                 connectedGroup.addWorkerThread(new InputOutputStreamPipePayload(getInputStream(),
-                        localSocket.getOutputStream(), false));
+                        localSocket.getOutputStream()));
             } catch (IOException e) {
                 logger.error("Error trying to accept from local port {}: {}", localPort, e);
                 if (connectedGroup != null) connectedGroup.stop();

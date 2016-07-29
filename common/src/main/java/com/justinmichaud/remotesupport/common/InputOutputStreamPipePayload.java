@@ -8,29 +8,21 @@ import java.io.OutputStream;
 public class InputOutputStreamPipePayload extends WorkerThreadManager.WorkerThreadPayload {
     private final InputStream in;
     private final OutputStream out;
-    private final boolean blocking;
+
+    private byte[] buf = new byte[8024];
 
     public InputOutputStreamPipePayload(InputStream in, OutputStream out) {
-       this(in, out, true);
-    }
-
-    public InputOutputStreamPipePayload(InputStream in, OutputStream out, boolean blocking) {
         super("InputOutputStream Pipe");
         this.in = in;
         this.out = out;
-        this.blocking = blocking;
     }
 
     @Override
     public void tick() throws Exception {
-        int b = in.read(); //TODO buffering
+        int read = in.read(buf);
 
-        // Our nonblocking circular buffer will return -1 when there is no more data left to read, but
-        // there still may be more data in the future
-
-        if (b >= 0) {
-            out.write(b);
+        if (read > 0) {
+            out.write(buf, 0, read);
         }
-        else if (blocking) throw new IOException("End of Stream");
     }
 }

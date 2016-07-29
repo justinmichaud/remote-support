@@ -28,9 +28,9 @@ public class LocalTunnelClientService extends Service {
                         serviceManager.workerThreadManager.makeGroup("Local Tunnel Client Connection", () -> connected = false);
                 connected = true;
                 connectedGroup.addWorkerThread(new InputOutputStreamPipePayload(localSocket.getInputStream(),
-                        getOutputStream(), false));
+                        getOutputStream()));
                 connectedGroup.addWorkerThread(new InputOutputStreamPipePayload(getInputStream(),
-                        localSocket.getOutputStream(), false));
+                        localSocket.getOutputStream()));
             } catch (IOException e) {
                 logger.error("Error trying to connect to local port {}: {}", port, e);
                 if (connectedGroup != null) connectedGroup.stop();
@@ -63,6 +63,6 @@ public class LocalTunnelClientService extends Service {
         super(id, serviceManager);
         logger.info("Allowing remote partner to send data to port " + port);
 //        workerThreadGroup.addWorkerThread(new ConnectPayload(port));
-        workerThreadGroup.addWorkerThread(new InputOutputStreamPipePayload(getInputStream(), getOutputStream(), false)); //TODO testing
+        workerThreadGroup.addWorkerThread(new InputOutputStreamPipePayload(getInputStream(), getOutputStream())); //TODO testing
     }
 }

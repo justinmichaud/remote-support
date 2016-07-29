@@ -87,9 +87,9 @@ public class ServiceManager {
 
         workerThreadGroup = workerThreadManager.makeGroup("Service Manager", this::stop);
         workerThreadGroup.addWorkerThread(new InputOutputStreamPipePayload(peerSocket.getInputStream(),
-                inputBuffer.getOutputStream(), false));
+                inputBuffer.getOutputStream()));
         workerThreadGroup.addWorkerThread(new InputOutputStreamPipePayload(outputBuffer.getInputStream(),
-                peerSocket.getOutputStream(), false));
+                peerSocket.getOutputStream()));
         workerThreadGroup.addWorkerThread(new EventLoopPayload());
     }
 
