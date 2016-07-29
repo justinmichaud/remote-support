@@ -62,6 +62,7 @@ public class LocalTunnelClientService extends Service {
             throws IOException {
         super(id, serviceManager);
         logger.info("Allowing remote partner to send data to port " + port);
-        workerThreadGroup.addWorkerThread(new ConnectPayload(port));
+//        workerThreadGroup.addWorkerThread(new ConnectPayload(port));
+        workerThreadGroup.addWorkerThread(new InputOutputStreamPipePayload(getInputStream(), getOutputStream(), false)); //TODO testing
     }
 }

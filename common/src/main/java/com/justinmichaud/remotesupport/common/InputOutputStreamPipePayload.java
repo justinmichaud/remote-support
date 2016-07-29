@@ -23,12 +23,14 @@ public class InputOutputStreamPipePayload extends WorkerThreadManager.WorkerThre
 
     @Override
     public void tick() throws Exception {
-        int b = in.read();
+        int b = in.read(); //TODO buffering
 
         // Our nonblocking circular buffer will return -1 when there is no more data left to read, but
         // there still may be more data in the future
 
-        if (b >= 0) out.write(b);
+        if (b >= 0) {
+            out.write(b);
+        }
         else if (blocking) throw new IOException("End of Stream");
     }
 }

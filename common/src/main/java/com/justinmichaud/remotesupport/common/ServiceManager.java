@@ -29,7 +29,8 @@ public class ServiceManager {
         }
 
         private void handleIncoming() throws IOException {
-            if (peerSocket.isClosed()) throw new IOException("Peer socket is closed");
+            if (peerSocket.isClosed() || !peerSocket.isConnected())
+                throw new IOException("Peer socket is closed");
 
             if (inputBuffer.getAvailable() <= 3) return;
             InputStream in = inputBuffer.getInputStream();
@@ -38,19 +39,23 @@ public class ServiceManager {
             int id = in.read();
             int length = ((in.read()&0xFF) << 8) | (in.read()&0xFF);
 
-            if (inputBuffer.getAvailable() < 3 + length) {
-                in.reset();
-                return;
-            }
+            in.reset();
+
+            if (inputBuffer.getAvailable() < 3 + length) return;
+            skip(in, 3);
 
             Service s = getService(id);
             if (s == null) {
                 logger.error("Unknown service id: {}. Skipping.", id);
-                long skipped = 0;
-                while (skipped < length)
-                    skipped += in.skip(length - skipped);
+                skip(in, length);
             }
             else s.readDataFromTunnel(length, in);
+        }
+
+        private void skip(InputStream in, long n) throws IOException {
+            long skipped = 0;
+            while (skipped < n)
+                skipped += in.skip(n - skipped);
         }
 
         private void handleOutgoing() throws IOException {

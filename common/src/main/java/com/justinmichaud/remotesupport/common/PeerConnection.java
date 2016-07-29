@@ -15,7 +15,7 @@ public class PeerConnection {
     private final TlsConnection tlsConnection;
 
     private final Logger logger;
-    private final Thread shutdownHook;
+    private Thread shutdownHook;
 
     public PeerConnection(String alias, String partnerAlias, Socket baseSocket, boolean server)
             throws GeneralSecurityException, IOException, OperatorCreationException {
@@ -50,8 +50,10 @@ public class PeerConnection {
     private void onStopped() {
         if (!isRunning()) return;
 
-        if (shutdownHook != null)
+        if (shutdownHook != null) {
             Runtime.getRuntime().removeShutdownHook(shutdownHook);
+            shutdownHook = null;
+        }
 
         try {
             tlsConnection.getSocket().close();
