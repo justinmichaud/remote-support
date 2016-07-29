@@ -1,14 +1,14 @@
 package com.justinmichaud.remotesupport.client;
 
 import com.barchart.udt.net.NetSocketUDT;
-import com.justinmichaud.remotesupport.common.LocalTunnelClientService;
 import com.justinmichaud.remotesupport.common.PeerConnection;
-import com.justinmichaud.remotesupport.common.TlsConnection;
 import org.bouncycastle.operator.OperatorCreationException;
 
-import java.io.*;
-import java.net.*;
-import java.security.*;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.security.GeneralSecurityException;
+import java.util.Set;
 
 public class Client {
 
@@ -17,6 +17,8 @@ public class Client {
 
     public static void main(String... args) throws GeneralSecurityException, IOException, OperatorCreationException, InterruptedException {
         System.out.println("Client");
+
+        System.setProperty(org.slf4j.impl.SimpleLogger.DEFAULT_LOG_LEVEL_KEY, "DEBUG");
 
         Socket baseSocket = new NetSocketUDT();
         baseSocket.setKeepAlive(true);
@@ -28,10 +30,13 @@ public class Client {
 
         while (conn.isRunning()) {
             Thread.sleep(1000);
-            baseSocket.close();
-            //conn.serviceManager.controlService.requestPeerCloseService(20);
         }
 
+        //TODO debugging only
+        Set<Thread> threadSet = Thread.getAllStackTraces().keySet();
+        for (Thread t : threadSet) {
+            if (!t.isDaemon()) System.out.println("Running thread: "  +t.getName());
+        }
         System.out.println("Connection closed.");
     }
 }

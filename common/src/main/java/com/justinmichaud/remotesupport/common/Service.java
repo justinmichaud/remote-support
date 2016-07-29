@@ -40,14 +40,13 @@ public abstract class Service {
     }
 
     public void readDataFromTunnel(int size, InputStream in) throws IOException {
-        logger.debug("Reading data from tunnel");
         for (int i = 0; i<size; i++) {
             inBuffer.getOutputStream().write(in.read());
         }
     }
 
     public void writeDataToTunnel(OutputStream out) throws IOException {
-        logger.debug("Writing data to tunnel");
+        if (outBuffer.getAvailable() <= 0) return;
         int read = outBuffer.getInputStream().read(buf);
         if (read <= 0) return;
 

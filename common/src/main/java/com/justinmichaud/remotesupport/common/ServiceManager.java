@@ -29,6 +29,8 @@ public class ServiceManager {
         }
 
         private void handleIncoming() throws IOException {
+            if (peerSocket.isClosed()) throw new IOException("Peer socket is closed");
+
             if (inputBuffer.getAvailable() <= 3) return;
             InputStream in = inputBuffer.getInputStream();
             in.mark(3);
@@ -59,7 +61,7 @@ public class ServiceManager {
 
         @Override
         public void tick() throws Exception {
-            //These are nonblocking
+            //These must not block
             handleIncoming();
             handleOutgoing();
         }

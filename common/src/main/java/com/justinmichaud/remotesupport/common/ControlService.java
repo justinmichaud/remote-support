@@ -25,7 +25,10 @@ public class ControlService extends Service {
             else if (magic == CLOSE_PORT) {
                 int id = getInputStream().read();
                 logger.debug("Peer requested that we stop service {}", id);
-                serviceManager.getService(id).stop();
+                if (serviceManager.getService(id) == null) {
+                    logger.debug("Can't remove service " + id + " as it does not exist");
+                }
+                else serviceManager.getService(id).stop();
             }
             else {
                 throw new IOException("Control Service - Unknown magic number " + magic);

@@ -9,8 +9,6 @@ It uses UDP hole punching to allow clients to connect through NATs. A publicly a
 
 # TODO / Ideas to explore
 
-- Fix issue where control packets aren't read
-- Test sending bad control packet
 - Fix port forwarding
 - Establish encrypted connection with public server, authenticate aliases, get/send info for udp hole punching
 - Ask the user to forward ports if udp hole punching doesn't work

@@ -58,7 +58,7 @@ public class LocalTunnelServerService extends Service {
                 }
             }
 
-            localSocket.close();
+            if (!localSocket.isClosed()) localSocket.close();
             serviceManager.controlService.requestPeerCloseService(LocalTunnelServerService.this.id);
             logger.info("Closed tunneled server connection on port {}", localPort);
         }

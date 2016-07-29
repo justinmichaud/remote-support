@@ -18,12 +18,14 @@ public class Server {
     public static void main(String... args) throws IOException, GeneralSecurityException, OperatorCreationException, InterruptedException {
         System.out.println("Server");
 
+        System.setProperty(org.slf4j.impl.SimpleLogger.DEFAULT_LOG_LEVEL_KEY, "TRACE");
+
         ServerSocket serverSocket = new NetServerSocketUDT();
         serverSocket.bind(new InetSocketAddress(5000), 1);
 
         Socket baseConnection = serverSocket.accept();
         PeerConnection conn = new PeerConnection("server", "client", baseConnection, true);
-        conn.openServerPort(1, 6000, 4000);
+        conn.openServerPort(1, 6000, 22);
 
         System.out.println("Connected to client!");
 
@@ -34,7 +36,7 @@ public class Server {
         //TODO debugging only
         Set<Thread> threadSet = Thread.getAllStackTraces().keySet();
         for (Thread t : threadSet) {
-            if (!t.isDaemon()) System.out.println("Orphaned thread: "  +t.getName());
+            if (!t.isDaemon()) System.out.println("Running thread: "  +t.getName());
         }
         System.out.println("Connection closed.");
     }

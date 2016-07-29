@@ -15,6 +15,7 @@ public class PeerConnection {
     private final TlsConnection tlsConnection;
 
     private final Logger logger;
+    private final Thread shutdownHook;
 
     public PeerConnection(String alias, String partnerAlias, Socket baseSocket, boolean server)
             throws GeneralSecurityException, IOException, OperatorCreationException {
@@ -26,6 +27,16 @@ public class PeerConnection {
                 new File(alias.replaceAll("\\W+", "") + "_private.jks"),
                 new File(alias.replaceAll("\\W+", "") + "_trusted.jks"), server);
         serviceManager = new ServiceManager(tlsConnection.getSocket(), this::onStopped);
+
+        // Gracefully close our connection if the program is killed
+        shutdownHook = new Thread() {
+            public void run() {
+                try {
+                    tlsConnection.getSocket().close();
+                } catch (IOException e) {}
+            }
+        };
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
     }
 
     public void openServerPort(int id, int localPort, int remotePort) throws IOException {
@@ -38,6 +49,9 @@ public class PeerConnection {
 
     private void onStopped() {
         if (!isRunning()) return;
+
+        if (shutdownHook != null)
+            Runtime.getRuntime().removeShutdownHook(shutdownHook);
 
         try {
             tlsConnection.getSocket().close();
