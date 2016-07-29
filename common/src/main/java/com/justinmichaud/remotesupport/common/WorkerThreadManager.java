@@ -93,7 +93,7 @@ public class WorkerThreadManager {
                 while (group.running) {
                     try {
                         payload.tick();
-                        Thread.sleep(10); //Avoid 100% CPU usage
+                        Thread.sleep(1); //Avoid 100% CPU usage
                     } catch (Exception e) {
                         logger.debug("Error while running worker thread: {}", e);
                         group.stop();

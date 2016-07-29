@@ -9,14 +9,16 @@ It uses UDP hole punching to allow clients to connect through NATs. A publicly a
 
 # Left to implement
 
-- Fix port forwarding bug causing ssh not to work
+- Fix bug causing vnc to work but ssh to fail
 - Destroy server tunnel connection if client connection breaks
 - Allow requesting a server port be opened
+
 - Establish encrypted connection with public server, authenticate aliases, get/send info for udp hole punching
+
+- Improve performance
+- Make simple gui to allow the connection details to be entered
 - Ask the user to forward ports if udp hole punching doesn't work
 - Handle edge cases when two people try to connect to same computer
-
-- Make simple gui to allow the connection details to be entered
 - Forward vnc from gui
 
 - Replace threaded portions with nio
