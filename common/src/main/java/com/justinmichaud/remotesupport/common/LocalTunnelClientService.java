@@ -48,7 +48,7 @@ public class LocalTunnelClientService extends Service {
                 }
             }
 
-            localSocket.close();
+            if (!localSocket.isClosed()) localSocket.close();
             logger.info("Closed tunneled connection on port {}", port);
         }
 
@@ -62,7 +62,6 @@ public class LocalTunnelClientService extends Service {
             throws IOException {
         super(id, serviceManager);
         logger.info("Allowing remote partner to send data to port " + port);
-//        workerThreadGroup.addWorkerThread(new ConnectPayload(port));
-        workerThreadGroup.addWorkerThread(new InputOutputStreamPipePayload(getInputStream(), getOutputStream())); //TODO testing
+        workerThreadGroup.addWorkerThread(new ConnectPayload(port));
     }
 }

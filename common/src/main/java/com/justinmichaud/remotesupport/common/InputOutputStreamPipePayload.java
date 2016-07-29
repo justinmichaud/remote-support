@@ -1,6 +1,5 @@
 package com.justinmichaud.remotesupport.common;
 
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -23,6 +22,9 @@ public class InputOutputStreamPipePayload extends WorkerThreadManager.WorkerThre
 
         if (read > 0) {
             out.write(buf, 0, read);
+        }
+        else if (read < 0) {
+            throw new IOException("End of stream");
         }
     }
 }
