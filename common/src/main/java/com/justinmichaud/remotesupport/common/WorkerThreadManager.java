@@ -26,7 +26,7 @@ public class WorkerThreadManager {
             logger = LoggerFactory.getLogger("[Worker Thread Payload: " + name + "]");
         }
 
-        public void start() throws Exception {}
+        public void start(WorkerThreadGroup group) throws Exception {}
 
         public void tick() throws Exception {}
 
@@ -86,11 +86,11 @@ public class WorkerThreadManager {
             public void run() {
                 logger.debug("Starting worker thread.");
                 try {
-                    payload.start();
+                    payload.start(group);
                 } catch (Exception e) {
                     logger.debug("Error while starting worker thread: {}", e);
                 }
-                while (group.running) {
+                while (group.running && !Thread.currentThread().isInterrupted()) {
                     try {
                         payload.tick();
                         Thread.sleep(1); //Avoid 100% CPU usage

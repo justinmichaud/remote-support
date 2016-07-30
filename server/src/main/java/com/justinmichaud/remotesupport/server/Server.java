@@ -23,7 +23,14 @@ public class Server {
 
         Socket baseConnection = serverSocket.accept();
         PeerConnection conn = new PeerConnection("server", "client", baseConnection, true);
-        conn.openServerPort(1, 8000, 5900);
+//        conn.openServerPort(1, 8000, 5900);
+
+        // Gracefully close our connection if the program is killed
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            public void run() {
+                conn.stop();
+            }
+        });
 
         System.out.println("Connected to client!");
 

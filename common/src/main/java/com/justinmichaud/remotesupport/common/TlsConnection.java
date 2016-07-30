@@ -242,7 +242,19 @@ public class TlsConnection {
         return getCertificateFingerprint((X509Certificate) privateKey.getCertificate("cert"));
     }
 
-    public Socket getSocket() {
-        return socket;
+    public InputStream getInputStream() throws IOException {
+        return socket.getInputStream();
+    }
+
+    public OutputStream getOutputStream() throws IOException {
+        return socket.getOutputStream();
+    }
+
+    public boolean isClosed() {
+        return socket.isClosed() || !socket.isConnected();
+    }
+
+    public void close() throws IOException {
+        socket.close();
     }
 }

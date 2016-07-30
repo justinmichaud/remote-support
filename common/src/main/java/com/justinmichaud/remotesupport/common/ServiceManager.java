@@ -15,7 +15,7 @@ public class ServiceManager {
 
     private final Logger logger;
 
-    private final Socket peerSocket;
+    private final TlsConnection peerSocket;
     private final WorkerThreadManager.WorkerThreadGroup workerThreadGroup;
     private final ConcurrentHashMap<Integer, Service> services = new ConcurrentHashMap<>();
     private final CircularByteBuffer inputBuffer, outputBuffer;
@@ -29,7 +29,7 @@ public class ServiceManager {
         }
 
         private void handleIncoming() throws IOException {
-            if (peerSocket.isClosed() || !peerSocket.isConnected())
+            if (peerSocket.isClosed())
                 throw new IOException("Peer socket is closed");
 
             if (inputBuffer.getAvailable() <= 3) return;
@@ -72,7 +72,7 @@ public class ServiceManager {
         }
     }
 
-    public ServiceManager(Socket peerSocket, Runnable onServiceManagerStopped) throws IOException {
+    public ServiceManager(TlsConnection peerSocket, Runnable onServiceManagerStopped) throws IOException {
         this.logger = LoggerFactory.getLogger("[Service Manager]");
         this.peerSocket = peerSocket;
         this.onServiceManagerStopped = onServiceManagerStopped;
@@ -97,34 +97,51 @@ public class ServiceManager {
         return services.get(id);
     }
 
-    public Service addService(Service s) throws IOException {
-        logger.info("Adding local service {}", s.id);
-
-        if (s.id == 0)
-            throw new IllegalArgumentException("Cannot add service with id 0 - this is reserved by the control service");
-
-        if (services.containsKey(s.id)) {
-            throw new RuntimeException("Overwriting existing service!");
+    public int getNextId() {
+        synchronized (services) {
+            int i = 0;
+            while (!services.containsKey(i)) i++;
+            return i;
         }
+    }
 
-        services.put(s.id, s);
-        return s;
+    public Service addService(Service s) throws IOException {
+        synchronized (services) {
+            logger.info("Adding local service {}", s.id);
+
+            if (s.id == 0) {
+                s.stop();
+                stop();
+                throw new IllegalArgumentException("Cannot add service with id 0 - this is reserved by the control service");
+            }
+
+            if (services.containsKey(s.id)) {
+                s.stop();
+                stop();
+                throw new RuntimeException("Overwriting existing service!");
+            }
+
+            services.put(s.id, s);
+            return s;
+        }
     }
 
     public void removeStoppedService(Service stopped) {
-        Service s = getService(stopped.id);
-        if (s == null)
-            logger.debug("Error removing stopped service " + stopped.id + " - Service does not exist");
-        else if (s != stopped)
-            logger.debug("Error removing stopped service " + stopped.id + " - Service id does not match");
-        else if (s.isRunning())
-            logger.debug("Error removing stopped service " + stopped.id + " - Service is still running");
-        else {
-            services.remove(s.id);
+        synchronized (services) {
+            Service s = getService(stopped.id);
+            if (s == null)
+                logger.debug("Error removing stopped service " + stopped.id + " - Service does not exist");
+            else if (s != stopped)
+                logger.debug("Error removing stopped service " + stopped.id + " - Service id does not match");
+            else if (s.isRunning())
+                logger.debug("Error removing stopped service " + stopped.id + " - Service is still running");
+            else {
+                services.remove(s.id);
 
-            if (s.id == 0) {
-                logger.debug("Removing control service");
-                stop();
+                if (s.id == 0) {
+                    logger.debug("Removing control service");
+                    stop();
+                }
             }
         }
     }

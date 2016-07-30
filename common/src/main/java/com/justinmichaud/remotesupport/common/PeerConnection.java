@@ -15,7 +15,6 @@ public class PeerConnection {
     private final TlsConnection tlsConnection;
 
     private final Logger logger;
-    private Thread shutdownHook;
 
     public PeerConnection(String alias, String partnerAlias, Socket baseSocket, boolean server)
             throws GeneralSecurityException, IOException, OperatorCreationException {
@@ -26,37 +25,26 @@ public class PeerConnection {
         tlsConnection = new TlsConnection(alias, partnerAlias, baseSocket,
                 new File(alias.replaceAll("\\W+", "") + "_private.jks"),
                 new File(alias.replaceAll("\\W+", "") + "_trusted.jks"), server);
-        serviceManager = new ServiceManager(tlsConnection.getSocket(), this::onStopped);
-
-        // Gracefully close our connection if the program is killed
-        shutdownHook = new Thread() {
-            public void run() {
-                try {
-                    tlsConnection.getSocket().close();
-                } catch (IOException e) {}
-            }
-        };
-        Runtime.getRuntime().addShutdownHook(shutdownHook);
+        serviceManager = new ServiceManager(tlsConnection, this::onStopped);
     }
 
     public void openServerPort(int id, int localPort, int remotePort) throws IOException {
         serviceManager.addService(new LocalTunnelServerService(id, serviceManager, localPort, remotePort));
     }
 
+    public void openRemoteServerPort(int theirPort, int ourPort) throws IOException {
+        serviceManager.controlService.requestPeerOpenServerPort(theirPort, ourPort);
+    }
+
     public boolean isRunning() {
-        return serviceManager.isRunning() || !tlsConnection.getSocket().isClosed();
+        return serviceManager.isRunning() || !tlsConnection.isClosed();
     }
 
     private void onStopped() {
         if (!isRunning()) return;
 
-        if (shutdownHook != null) {
-            Runtime.getRuntime().removeShutdownHook(shutdownHook);
-            shutdownHook = null;
-        }
-
         try {
-            tlsConnection.getSocket().close();
+            tlsConnection.close();
         } catch (IOException e) {
             logger.error("Error closing tls connection:", e);
         }
@@ -66,7 +54,5 @@ public class PeerConnection {
         if (!isRunning()) return;
 
         serviceManager.stop();
-        onStopped();
-
     }
 }

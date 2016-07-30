@@ -3,6 +3,7 @@ package com.justinmichaud.remotesupport.common;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.SocketTimeoutException;
 
 public class InputOutputStreamPipePayload extends WorkerThreadManager.WorkerThreadPayload {
     private final InputStream in;
@@ -18,7 +19,12 @@ public class InputOutputStreamPipePayload extends WorkerThreadManager.WorkerThre
 
     @Override
     public void tick() throws Exception {
-        int read = in.read(buf);
+        int read;
+        try {
+            read = in.read(buf);
+        } catch (SocketTimeoutException e) {
+            return;
+        }
 
         if (read > 0) {
             out.write(buf, 0, read);

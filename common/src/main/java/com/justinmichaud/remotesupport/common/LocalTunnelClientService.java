@@ -1,15 +1,14 @@
 package com.justinmichaud.remotesupport.common;
 
 import java.io.IOException;
-import java.net.Socket;
+import java.net.*;
 
 public class LocalTunnelClientService extends Service {
 
     private class ConnectPayload extends WorkerThreadManager.WorkerThreadPayload {
 
         private final int port;
-        private volatile boolean connected = false;
-        private WorkerThreadManager.WorkerThreadGroup connectedGroup;
+        private Socket localSocket;
 
         public ConnectPayload(int port) {
             super("Local Tunnel Client Connector");
@@ -17,51 +16,46 @@ public class LocalTunnelClientService extends Service {
         }
 
         @Override
-        public void tick() throws IOException {
-            Socket localSocket;
-            try {
-                localSocket = new Socket("localhost", port);
-            } catch (IOException e) { return; }
+        public void start(WorkerThreadManager.WorkerThreadGroup group) throws Exception {
+            logger.info("Allowing remote partner to send data to port " + port);
 
-            try {
-                connectedGroup =
-                        serviceManager.workerThreadManager.makeGroup("Local Tunnel Client Connection", () -> connected = false);
-                connected = true;
-                connectedGroup.addWorkerThread(new InputOutputStreamPipePayload(localSocket.getInputStream(),
-                        getOutputStream()));
-                connectedGroup.addWorkerThread(new InputOutputStreamPipePayload(getInputStream(),
-                        localSocket.getOutputStream()));
-            } catch (IOException e) {
-                logger.error("Error trying to connect to local port {}: {}", port, e);
-                if (connectedGroup != null) connectedGroup.stop();
-                return;
-            }
-
-            logger.info("Created new tunneled connection on port {}", port);
-
-            while (connected) {
+            while (localSocket == null
+                    && group.isRunning()) {
                 try {
-                    Thread.sleep(100);
-                } catch (InterruptedException e) {
-                    logger.debug("Interrupted while waiting for connection to end");
-                    if (connectedGroup != null) connectedGroup.stop();
+                    localSocket = new Socket();
+                    localSocket.connect(new InetSocketAddress("localhost", port), 100);
+                    localSocket.setSoTimeout(100);
+                } catch (IOException e) {
+                    localSocket = null;
                 }
             }
 
-            if (!localSocket.isClosed()) localSocket.close();
-            logger.info("Closed tunneled connection on port {}", port);
+            workerThreadGroup.addWorkerThread(new InputOutputStreamPipePayload(localSocket.getInputStream(),
+                    getOutputStream()));
+            workerThreadGroup.addWorkerThread(new InputOutputStreamPipePayload(getInputStream(),
+                    localSocket.getOutputStream()));
+
+            logger.info("Created new tunneled client connection on port {}", port);
         }
 
         @Override
-        public void stop() {
-            if (connectedGroup != null) connectedGroup.stop();
+        public void tick() throws Exception {
+            Thread.sleep(100);
+        }
+
+        @Override
+        public void stop() throws Exception {
+            serviceManager.controlService.requestPeerCloseService(id);
+            if (localSocket != null && !localSocket.isClosed()) localSocket.close();
+
+            logger.info("Closed tunneled client connection on port {}", port);
+            System.out.println("Partner can no longer send data to port " + port);
         }
     }
 
     public LocalTunnelClientService(int id, ServiceManager serviceManager, int port)
             throws IOException {
         super(id, serviceManager);
-        logger.info("Allowing remote partner to send data to port " + port);
         workerThreadGroup.addWorkerThread(new ConnectPayload(port));
     }
 }

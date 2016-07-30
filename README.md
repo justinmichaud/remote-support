@@ -10,8 +10,6 @@ It uses UDP hole punching to allow clients to connect through NATs. A publicly a
 # Left to implement
 
 - Fix bug causing vnc to work but ssh to fail
-- Destroy server tunnel connection if client connection breaks
-- Allow requesting a server port be opened
 
 - Establish encrypted connection with public server, authenticate aliases, get/send info for udp hole punching
 
@@ -21,5 +19,5 @@ It uses UDP hole punching to allow clients to connect through NATs. A publicly a
 - Handle edge cases when two people try to connect to same computer
 - Forward vnc from gui
 
-- Replace threaded portions with nio
+- Replace threaded portions with nio to get around the fact that you can't interrupt socket reads on threads
 
