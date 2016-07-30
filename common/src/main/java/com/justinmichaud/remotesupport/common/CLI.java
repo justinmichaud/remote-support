@@ -1,33 +1,16 @@
-package com.justinmichaud.remotesupport.client;
-
-import com.barchart.udt.net.NetSocketUDT;
-import com.justinmichaud.remotesupport.common.PeerConnection;
-import com.justinmichaud.remotesupport.common.Service;
-import org.bouncycastle.operator.OperatorCreationException;
+package com.justinmichaud.remotesupport.common;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.security.GeneralSecurityException;
 import java.util.Set;
 
-public class Client {
+public class CLI {
 
-    // Testing:
-    // Connections to port 6000 on server are sent over port 5000 to port 4000 here
+    // Command line client for testing
 
-    public static void main(String... args) throws GeneralSecurityException, IOException, OperatorCreationException, InterruptedException {
-        System.out.println("Client");
-
-        System.setProperty(org.slf4j.impl.SimpleLogger.DEFAULT_LOG_LEVEL_KEY, "DEBUG");
-
-        Socket baseSocket = new NetSocketUDT();
-        baseSocket.setKeepAlive(true);
-        baseSocket.connect(new InetSocketAddress("localhost", 5000));
-
-        PeerConnection conn = new PeerConnection("client", "server", baseSocket, false);
+    public static void runCLI(PeerConnection conn) throws IOException, InterruptedException {
+        System.out.println("Connected");
 
         // Gracefully close our connection if the program is killed
         Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -35,8 +18,6 @@ public class Client {
                 conn.stop();
             }
         });
-
-        System.out.println("Connected to server!");
 
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
         while (conn.isRunning()) {
@@ -83,4 +64,5 @@ public class Client {
         }
         System.out.println("Connection closed.");
     }
+
 }
