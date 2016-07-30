@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.Socket;
+import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ServiceManager {
@@ -97,10 +97,14 @@ public class ServiceManager {
         return services.get(id);
     }
 
+    public Collection<Service> getServices() {
+        return services.values();
+    }
+
     public int getNextId() {
         synchronized (services) {
             int i = 0;
-            while (!services.containsKey(i)) i++;
+            while (services.containsKey(i)) i++;
             return i;
         }
     }

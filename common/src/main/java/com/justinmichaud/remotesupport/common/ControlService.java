@@ -78,4 +78,9 @@ public class ControlService extends Service {
         super.stop();
         serviceManager.stop();
     }
+
+    @Override
+    public String toString() {
+        return "Control Service";
+    }
 }

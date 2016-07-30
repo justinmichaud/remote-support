@@ -5,14 +5,14 @@ import java.net.*;
 
 public class LocalTunnelClientService extends Service {
 
+    private final int port;
+
     private class ConnectPayload extends WorkerThreadManager.WorkerThreadPayload {
 
-        private final int port;
         private Socket localSocket;
 
-        public ConnectPayload(int port) {
+        public ConnectPayload() {
             super("Local Tunnel Client Connector");
-            this.port = port;
         }
 
         @Override
@@ -56,6 +56,12 @@ public class LocalTunnelClientService extends Service {
     public LocalTunnelClientService(int id, ServiceManager serviceManager, int port)
             throws IOException {
         super(id, serviceManager);
-        workerThreadGroup.addWorkerThread(new ConnectPayload(port));
+        this.port = port;
+        workerThreadGroup.addWorkerThread(new ConnectPayload());
+    }
+
+    @Override
+    public String toString() {
+        return "Client Tunnel: " + port;
     }
 }

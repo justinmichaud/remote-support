@@ -12,7 +12,7 @@ public abstract class Service {
 
     public final static int MAX_ID = 255;
 
-    protected final int id;
+    public final int id;
 
     // Out buffer is data that came from our output stream, to the tunnel
     // In buffer is data from the tunnel, to our input stream

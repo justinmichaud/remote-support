@@ -7,17 +7,16 @@ import java.net.SocketTimeoutException;
 
 public class LocalTunnelServerService extends Service {
 
+    private final int localPort, remotePort;
+
     private class ConnectPayload extends WorkerThreadManager.WorkerThreadPayload {
 
         private final ServerSocket localServer;
-        private final int localPort, remotePort;
         private Socket localSocket;
 
-        public ConnectPayload(int localPort, int remotePort) throws IOException {
+        public ConnectPayload() throws IOException {
             super("Local Tunnel Server Acceptor");
 
-            this.localPort = localPort;
-            this.remotePort = remotePort;
             localServer = new ServerSocket(localPort);
             localServer.setSoTimeout(100);
         }
@@ -62,6 +61,13 @@ public class LocalTunnelServerService extends Service {
     public LocalTunnelServerService(int id, ServiceManager serviceManager, int localPort, int remotePort)
             throws IOException {
         super(id, serviceManager);
-        workerThreadGroup.addWorkerThread(new ConnectPayload(localPort, remotePort));
+        this.localPort = localPort;
+        this.remotePort = remotePort;
+        workerThreadGroup.addWorkerThread(new ConnectPayload());
+    }
+
+    @Override
+    public String toString() {
+        return "Server tunnel " + localPort + " -> " + remotePort;
     }
 }
