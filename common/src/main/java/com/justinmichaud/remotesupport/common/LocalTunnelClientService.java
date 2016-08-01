@@ -39,11 +39,6 @@ public class LocalTunnelClientService extends Service {
         }
 
         @Override
-        public void tick() throws Exception {
-            Thread.sleep(100);
-        }
-
-        @Override
         public void stop() throws Exception {
             serviceManager.controlService.requestPeerCloseService(id);
             if (localSocket != null && !localSocket.isClosed()) localSocket.close();

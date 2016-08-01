@@ -28,7 +28,7 @@ public class WorkerThreadManager {
 
         public void start(WorkerThreadGroup group) throws Exception {}
 
-        public void tick() throws Exception {}
+        public void tick() throws Exception {Thread.sleep(100);}
 
         public void stop() throws Exception {}
     }
@@ -89,8 +89,9 @@ public class WorkerThreadManager {
                     payload.start(group);
                 } catch (Exception e) {
                     logger.debug("Error while starting worker thread: {}", e);
+                    group.stop();
                 }
-                while (group.running && !Thread.currentThread().isInterrupted()) {
+                while (group.running) {
                     try {
                         payload.tick();
                         Thread.sleep(1); //Avoid 100% CPU usage
@@ -149,6 +150,10 @@ public class WorkerThreadManager {
     public synchronized void stop() {
         logger.debug("Stopping thread manager");
         groups.forEach(WorkerThreadGroup::stop);
+    }
+
+    public synchronized boolean isRunning() {
+        return groups.size() > 0;
     }
 
 }
