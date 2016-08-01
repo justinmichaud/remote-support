@@ -1,19 +1,20 @@
 package com.justinmichaud.remotesupport.server;
 
+import com.barchart.udt.ErrorUDT;
+import com.barchart.udt.ExceptionUDT;
 import com.barchart.udt.net.NetServerSocketUDT;
 import com.justinmichaud.remotesupport.common.WorkerThreadManager;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.io.OutputStream;
+import java.net.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class Server {
 
     public static void main(String... args) throws IOException {
+        System.setProperty(org.slf4j.impl.SimpleLogger.DEFAULT_LOG_LEVEL_KEY, "DEBUG");
         System.out.println("Server");
 
         final ServerSocket serverSocket = new NetServerSocketUDT();
@@ -33,7 +34,7 @@ public class Server {
             }
         });
 
-        final ConcurrentHashMap<String, InetAddress> mapping = new ConcurrentHashMap<>();
+        final ConcurrentHashMap<String, Socket> mapping = new ConcurrentHashMap<>();
 
         final WorkerThreadManager.WorkerThreadGroup controlGroup
                 = threadManager.makeGroup("Server Control", threadManager::stop);
@@ -43,60 +44,109 @@ public class Server {
             public void tick() throws Exception {
                 Socket s = serverSocket.accept();
                 if (s == null) return;
+                final InputStream in = s.getInputStream();
 
                 System.out.println("New connection from " + s.getInetAddress());
 
                 threadManager.makeGroup("Connection " + s.getInetAddress().toString(), () -> {
-                    while (mapping.values().remove(s.getInetAddress()));
+                    while (mapping.values().remove(s));
                     try {
                         s.close();
                     } catch (IOException e) {}
                 }).addWorkerThread(new WorkerThreadManager.WorkerThreadPayload("Connection") {
-                    final StringBuilder name = new StringBuilder();
-                    boolean nameRead = false;
+                    private String name;
+                    private boolean nameValid = false;
+
+                    private long lastKeepalive = 0;
 
                     @Override
                     public void start(WorkerThreadManager.WorkerThreadGroup group) throws IOException {
-                        InputStream in = s.getInputStream();
-                        int length = s.getInputStream().read()&0xFF;
-
-                        for (int i=0; i< length; i++) name.append((char) (in.read()&0xFF));
+                        name = read(in);
 
                         //TODO verify user identity
-                        if (mapping.containsKey(name.toString())) {
-                            send("error: There is already a connected user with this name");
+                        if (mapping.containsKey(name)) {
+                            send(s.getOutputStream(), "error: There is already a connected user with this name");
 
                             throw new IllegalArgumentException("There is already a connected user with this name: "
                                     + name);
                         }
-                        nameRead = true;
+                        nameValid = true;
+                        send(s.getOutputStream(), "ok");
 
-                        mapping.put(name.toString(), s.getInetAddress());
-                        System.out.println("New user connected with name " + name + ": " + s.getInetAddress());
+                        mapping.put(name, s);
+                        System.out.println("New user connected with name " + name + ": " + s.getInetAddress()
+                                + ":" + s.getPort());
                     }
 
                     @Override
                     public void tick() throws Exception {
                         if (s.isClosed() || !s.isConnected()) throw new IOException("Socket closed");
-                        send("keepalive");
-                        Thread.sleep(1000);
+                        //Barchart UDT only notifies us of broken connections when we try to send something
+                        if (System.nanoTime() - lastKeepalive > 1*1E9) {
+                            System.out.println("Keepalive");
+                            send(s.getOutputStream(), "keepalive");
+                            lastKeepalive = System.nanoTime();
+                        }
+
+                        if (in.available() > 0) {
+                            String read = read(in);
+                            if (read.startsWith("connect:")) {
+                                String username = read.substring("connect:".length());
+
+                                if (mapping.containsKey(username)) {
+                                    // Start NAT traversal
+                                    Socket partner = mapping.get(username);
+                                    send(s.getOutputStream(), "ok:" + partner.getInetAddress()
+                                            + ":" + partner.getPort());
+                                    send(partner.getOutputStream(), "connect:" + partner.getInetAddress()
+                                            + ":" + partner.getPort());
+                                }
+                                else {
+                                    send(s.getOutputStream(), "offline");
+                                }
+                            }
+                        }
+
+                        Thread.sleep(100);
                     }
 
                     @Override
                     public void stop() {
-                        if (nameRead)  {
+                        if (nameValid)  {
                             mapping.remove(name.toString());
                             System.out.println("User " + name + " Disconnected");
                         }
                         else System.out.println("User disconnected before name could be verified");
                     }
 
-                    public void send(String msg) throws IOException {
+                    public void send(OutputStream out, String msg) throws IOException {
                         byte[] bytes = msg.getBytes();
                         if (bytes.length > 255) throw new IllegalArgumentException("Message is too long");
 
-                        s.getOutputStream().write(bytes.length);
-                        s.getOutputStream().write(bytes);
+                        out.write(bytes.length);
+                        out.write(bytes);
+                    }
+
+                    public String read(InputStream in) throws IOException {
+                        int length = blockingRead(in);
+
+                        StringBuilder buf = new StringBuilder();
+                        for (int i=0; i< length; i++) buf.append((char) (blockingRead(in)));
+
+                        return buf.toString();
+                    }
+
+                    private int blockingRead(InputStream in) throws IOException {
+                        int value = -1;
+                        while (value < 0) {
+                            try {
+                                value = in.read()&0xFF;
+                            } catch (ExceptionUDT e) {
+                                if (e.getError() != ErrorUDT.ETIMEOUT) throw e;
+                                value = -1;
+                            }
+                        }
+                        return value;
                     }
                 });
             }
