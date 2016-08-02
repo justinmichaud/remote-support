@@ -116,7 +116,7 @@ public class Client {
         }
 
         System.out.println("Connected to " + socket.getInetAddress() + ":" + socket.getPort());
-        send(socket.getOutputStream(), "Hello from connector!");
+        for (int i=0; i<10; i++) send(socket.getOutputStream(), "Hello from connector!");
         while (!socket.isClosed() && socket.isConnected()) {
             System.out.print(read(socket.getInputStream()));
         }
