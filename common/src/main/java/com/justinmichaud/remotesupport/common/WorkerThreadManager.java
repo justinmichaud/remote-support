@@ -70,6 +70,10 @@ public class WorkerThreadManager {
         public synchronized boolean isRunning() {
             return running;
         }
+
+        public WorkerThreadManager getThreadManager() {
+            return WorkerThreadManager.this;
+        }
     }
 
     private class WorkerThread {
@@ -149,7 +153,9 @@ public class WorkerThreadManager {
 
     public synchronized void stop() {
         logger.debug("Stopping thread manager");
-        groups.forEach(WorkerThreadGroup::stop);
+        while (!groups.isEmpty()) {
+            groups.get(groups.size()-1).stop();
+        }
     }
 
     public synchronized boolean isRunning() {

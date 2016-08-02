@@ -4,10 +4,7 @@ import com.barchart.udt.ErrorUDT;
 import com.barchart.udt.ExceptionUDT;
 import com.barchart.udt.net.NetSocketUDT;
 
-import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.Scanner;
@@ -28,14 +25,33 @@ public class Client {
         System.out.println(read(in));
 
         String partner = input("Who would you like to connect to?");
-        if (!partner.isEmpty()) send(socket.getOutputStream(), "connect: " + partner);
+        if (!partner.isEmpty()) send(socket.getOutputStream(), "connect:" + partner);
+        String partnerResponse = read(socket.getInputStream());
+        if (partnerResponse.startsWith("ok:")) {
+            String[] partnerDetails = partnerResponse.split(":");
+            if (partnerDetails.length != 3) {
+                socket.close();
+                throw new RuntimeException("Invalid data from server");
+            }
+
+            connectToPartner(partnerDetails[1], Integer.parseInt(partnerDetails[2]));
+        }
+        else System.out.println("Error: " + partnerResponse);
 
         while (!socket.isClosed() && socket.isConnected()) {
-            if (in.available() > 0) {
-                System.out.println("Tick");
-                String value = read(in);
-                System.out.println(value);
+            String value = read(in);
+
+            if (value.startsWith("connect:")) {
+                String[] partnerDetails = value.split(":");
+                if (partnerDetails.length != 3) {
+                    socket.close();
+                    throw new RuntimeException("Invalid data from server");
+                }
+
+                acceptFromPartner(partnerDetails[1], Integer.parseInt(partnerDetails[2]));
             }
+
+            System.out.println(value);
 
             try {
                 Thread.sleep(100);
@@ -43,6 +59,17 @@ public class Client {
         }
 
         if (!socket.isClosed()) socket.close();
+    }
+
+    private static void acceptFromPartner(String ip, int port) {
+        if (!input("Would you like to grant " + ip + ":" + port
+                + " to have remote access to your computer?").equalsIgnoreCase("y")) return;
+
+        System.out.println("Accept from " + ip + ":" + port);
+    }
+
+    private static void connectToPartner(String ip, int port) {
+        System.out.println("Connect to " + ip + ":" + port);
     }
 
     public static void send(OutputStream out, String msg) throws IOException {

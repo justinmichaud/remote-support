@@ -1,5 +1,8 @@
 package com.justinmichaud.remotesupport.common;
 
+import com.barchart.udt.ErrorUDT;
+import com.barchart.udt.ExceptionUDT;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -24,6 +27,9 @@ public class InputOutputStreamPipePayload extends WorkerThreadManager.WorkerThre
             read = in.read(buf);
         } catch (SocketTimeoutException e) {
             return;
+        } catch (ExceptionUDT e) {
+            if (e.getError() == ErrorUDT.ETIMEOUT) return;
+            throw e;
         }
 
         if (read > 0) {
