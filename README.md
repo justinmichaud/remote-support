@@ -20,5 +20,5 @@ It uses UDP hole punching to allow clients to connect through NATs. A publicly a
 - Handle edge cases when two people try to connect to same computer
 - Forward vnc from gui
 
-- Replace threaded portions with nio to get around the fact that you can't interrupt socket reads on threads
+- Replace threaded portions with nio (and possibly barchart udt with netty) to get around the limitations/bugs from having multiple threads that can't be interrupted when doing socket reads
 

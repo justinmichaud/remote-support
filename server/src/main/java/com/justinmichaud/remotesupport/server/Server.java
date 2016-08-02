@@ -91,7 +91,7 @@ public class Server {
         public void tick() throws Exception {
             //TODO two-way keepalive
             if (System.nanoTime() - lastKeepalive > 3*1E9) {
-                send(socket.getOutputStream(), "keepalive");
+                send("keepalive");
                 lastKeepalive = System.nanoTime();
             }
 
@@ -104,9 +104,9 @@ public class Server {
                     if (mapping.containsKey(username)) {
                         // Start NAT traversal
                         ConnectionThread partner = mapping.get(username);
-                        send("ok:" + partner.socket.getInetAddress()
+                        send("ok:" + partner.socket.getInetAddress().getHostAddress()
                                 + ":" + partner.socket.getPort());
-                        send(partner.getOutputStream(), "connect:" + socket.getInetAddress()
+                        send(partner.getOutputStream(), "connect:" + socket.getInetAddress().getHostAddress()
                                 + ":" + socket.getPort());
                     }
                     else {
