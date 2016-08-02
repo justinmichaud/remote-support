@@ -21,7 +21,7 @@ public class Client {
         System.out.println("Client");
 
         NetSocketUDT socket = new NetSocketUDT();
-        socket.connect(new InetSocketAddress("localhost", 5000));
+        socket.connect(new InetSocketAddress("localhost", 40000));
 
         BufferedInputStream in = new BufferedInputStream(socket.getInputStream());
 
@@ -77,7 +77,7 @@ public class Client {
         int existingPort = existingConnection.socketUDT().getLocalInetPort();
         existingConnection.close();
 
-        System.out.println("Accept from " + ip + ":" + port + " on " + 5000);
+        System.out.println("Accept from " + ip + ":" + port + " on " + existingPort);
         ServerSocket serverSocket = new NetServerSocketUDT();
 
         serverSocket.bind(new InetSocketAddress(existingPort));
