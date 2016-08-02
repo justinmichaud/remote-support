@@ -74,7 +74,7 @@ public class Server {
 
             //TODO verify user identity
             if (mapping.containsKey(name)) {
-                send("error: There is already a connected user with this name");
+                send(socket.getOutputStream(), "error: There is already a connected user with this name");
 
                 throw new IllegalArgumentException("There is already a connected user with this name: "
                         + name);

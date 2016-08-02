@@ -70,8 +70,8 @@ public class Client {
     }
 
     private static void acceptFromPartner(String ip, int port, NetSocketUDT existingConnection) throws IOException {
-//        if (!input("Would you like to grant " + ip + ":" + port
-//                + " to have remote access to your computer?").equalsIgnoreCase("y")) return;
+        if (!input("Would you like to grant " + ip + ":" + port
+                + " to have remote access to your computer?").equalsIgnoreCase("y")) return;
 
         //Re-use the existing connection so it passes through the nat
         int existingPort = existingConnection.socketUDT().getLocalInetPort();
@@ -99,7 +99,21 @@ public class Client {
 
         NetSocketUDT socket = new NetSocketUDT();
         socket.socketUDT().bind(new InetSocketAddress(existingPort));
-        socket.connect(new InetSocketAddress(ip, port));
+
+        for (int i=0; i<25; i++) {
+            try {
+                socket.connect(new InetSocketAddress(ip, port));
+                break;
+            } catch (IOException e) {
+                if (i == 24) {
+                    e.printStackTrace();
+                    return;
+                }
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e1) {}
+            }
+        }
 
         System.out.println("Connected to " + socket.getInetAddress() + ":" + socket.getPort());
         send(socket.getOutputStream(), "Hello from connector!");
