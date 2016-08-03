@@ -1,4 +1,4 @@
-package com.justinmichaud.remotesupport.common;
+package com.justinmichaud.remotesupport.client;
 
 import org.bouncycastle.operator.OperatorCreationException;
 import org.slf4j.Logger;

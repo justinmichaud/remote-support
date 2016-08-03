@@ -123,7 +123,7 @@ public class CircularByteBuffer {
      *
      * @since ostermillerutils 1.00.00
      */
-    protected boolean inputStreamClosed = false;
+    public boolean inputStreamClosed = false;
     /**
      * The OutputStream that can fill this buffer.
      *
@@ -135,7 +135,7 @@ public class CircularByteBuffer {
      *
      * @since ostermillerutils 1.00.00
      */
-    protected boolean outputStreamClosed = false;
+    public boolean outputStreamClosed = false;
  
     /**
      * Make this buffer ready for reuse.  The contents of the buffer

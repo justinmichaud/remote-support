@@ -1,4 +1,7 @@
-package com.justinmichaud.remotesupport.common;
+package com.justinmichaud.remotesupport.client;
+
+import com.justinmichaud.remotesupport.common.InputOutputStreamPipePayload;
+import com.justinmichaud.remotesupport.common.WorkerThreadManager;
 
 import java.io.IOException;
 import java.net.*;

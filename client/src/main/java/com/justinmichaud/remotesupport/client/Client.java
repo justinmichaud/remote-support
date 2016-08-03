@@ -2,27 +2,18 @@ package com.justinmichaud.remotesupport.client;
 
 import com.barchart.udt.ErrorUDT;
 import com.barchart.udt.ExceptionUDT;
-import com.barchart.udt.SocketUDT;
-import com.barchart.udt.TypeUDT;
-import com.barchart.udt.net.NetServerSocketUDT;
 import com.barchart.udt.net.NetSocketUDT;
-import com.barchart.udt.nio.KindUDT;
-import com.justinmichaud.remotesupport.common.CLI;
-import com.justinmichaud.remotesupport.common.PeerConnection;
-import com.sun.corba.se.spi.activation.Server;
 import org.bouncycastle.operator.OperatorCreationException;
 
 import java.io.*;
 import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
 import java.security.GeneralSecurityException;
 import java.util.Scanner;
 
 public class Client {
 
     public static void main(String... args) throws IOException, GeneralSecurityException, OperatorCreationException {
-        System.setProperty(org.slf4j.impl.SimpleLogger.DEFAULT_LOG_LEVEL_KEY, "DEBUG");
+        System.setProperty(org.slf4j.impl.SimpleLogger.DEFAULT_LOG_LEVEL_KEY, /*"DEBUG"*/"INFO");
         System.out.println("Client");
 
         NetSocketUDT socket = new NetSocketUDT();
@@ -80,11 +71,10 @@ public class Client {
                                          NetSocketUDT existingConnection, boolean isServer)
             throws IOException, GeneralSecurityException, OperatorCreationException {
         if (isServer && !input("Would you like to grant " + ip + ":" + port
-                + " remote access to your computer?").equalsIgnoreCase("y")) return;
-        System.out.println("Connect to " + ip + ":" + port + ". Server: " + isServer);
+                + " remote access to your computer?[y/N]").equalsIgnoreCase("y")) return;
+        System.out.println("Connecting to " + ip + ":" + port);
 
         int existingPort = existingConnection.socketUDT().getLocalInetPort();
-        System.out.println("Listen on " + existingPort);
         existingConnection.close();
 
         NetSocketUDT socket = new NetSocketUDT();

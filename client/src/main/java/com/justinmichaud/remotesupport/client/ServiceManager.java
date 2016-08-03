@@ -1,5 +1,8 @@
-package com.justinmichaud.remotesupport.common;
+package com.justinmichaud.remotesupport.client;
 
+import com.justinmichaud.remotesupport.common.CircularByteBuffer;
+import com.justinmichaud.remotesupport.common.InputOutputStreamPipePayload;
+import com.justinmichaud.remotesupport.common.WorkerThreadManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

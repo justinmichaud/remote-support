@@ -1,4 +1,4 @@
-package com.justinmichaud.remotesupport.common;
+package com.justinmichaud.remotesupport.client;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -46,16 +46,16 @@ public class CLI {
                 continue;
             }
 
-            System.out.println("Services:");
-            for (Service s : conn.serviceManager.getServices()) {
-                System.out.println(s.id + ": " + s);
-            }
-
-            System.out.println("Threads:");
-            Set<Thread> threadSet = Thread.getAllStackTraces().keySet();
-            for (Thread t : threadSet) {
-                if (!t.isDaemon()) System.out.println("Running thread: "  +t.getName());
-            }
+//            System.out.println("Services:");
+//            for (Service s : conn.serviceManager.getServices()) {
+//                System.out.println(s.id + ": " + s);
+//            }
+//
+//            System.out.println("Threads:");
+//            Set<Thread> threadSet = Thread.getAllStackTraces().keySet();
+//            for (Thread t : threadSet) {
+//                if (!t.isDaemon()) System.out.println("Running thread: "  +t.getName());
+//            }
         }
 
         Set<Thread> threadSet = Thread.getAllStackTraces().keySet();
