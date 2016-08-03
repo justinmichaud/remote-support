@@ -1,4 +1,4 @@
-package com.justinmichaud.remotesupport.client;
+package com.justinmichaud.remotesupport.client.tunnel;
 
 import com.justinmichaud.remotesupport.common.CircularByteBuffer;
 import com.justinmichaud.remotesupport.common.WorkerThreadManager;
