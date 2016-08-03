@@ -77,6 +77,7 @@ public class Client {
         System.out.println("Connect to " + ip + ":" + port + ". Server: " + isServer);
 
         int existingPort = existingConnection.socketUDT().getLocalInetPort();
+        System.out.println("Listen on " + existingPort);
         existingConnection.close();
 
         NetSocketUDT socket = new NetSocketUDT();
