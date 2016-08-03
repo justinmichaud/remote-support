@@ -35,6 +35,8 @@ public class LocalTunnelClientService extends Service {
             workerThreadGroup.addWorkerThread(new InputOutputStreamPipePayload(getInputStream(),
                     localSocket.getOutputStream()));
 
+            serviceManager.controlService.requestPeerOpenClientPortDone(LocalTunnelClientService.this);
+
             logger.info("Created new tunneled client connection on port {}", port);
         }
 

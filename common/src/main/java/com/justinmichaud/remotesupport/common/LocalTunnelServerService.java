@@ -13,6 +13,7 @@ public class LocalTunnelServerService extends Service {
 
         private ServerSocket localServer;
         private Socket localSocket;
+        private boolean peerOpen = false;
 
         public ConnectPayload() throws IOException {
             super("Local Tunnel Server Acceptor");
@@ -33,13 +34,17 @@ public class LocalTunnelServerService extends Service {
                 } catch (IOException e) {}
             }
 
+            serviceManager.controlService.requestPeerOpenClientPort(LocalTunnelServerService.this,
+                    remotePort, () -> peerOpen = true);
+
+            while (!peerOpen) {
+                Thread.sleep(100);
+            }
             workerThreadGroup.addWorkerThread(new InputOutputStreamPipePayload(localSocket.getInputStream(),
                     getOutputStream()));
             workerThreadGroup.addWorkerThread(new InputOutputStreamPipePayload(getInputStream(),
                     localSocket.getOutputStream()));
-
             logger.info("Created new tunneled server connection on port {}", localPort);
-            serviceManager.controlService.requestPeerOpenClientPort(LocalTunnelServerService.this, remotePort);
         }
 
         @Override

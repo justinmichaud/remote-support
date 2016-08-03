@@ -20,7 +20,8 @@ public abstract class Service {
     // read/write to and from tunnel are nonblocking
 
     protected final CircularByteBuffer inBuffer, outBuffer;
-    protected final byte[] buf = new byte[65535];
+    protected final byte[] outBuf = new byte[65535];
+    protected final byte[] inBuf = new byte[65535];
 
     protected final ServiceManager serviceManager;
     protected final WorkerThreadManager.WorkerThreadGroup workerThreadGroup;
@@ -40,21 +41,28 @@ public abstract class Service {
     }
 
     public void readDataFromTunnel(int size, InputStream in) throws IOException {
-        for (int i = 0; i<size; i++) {
-            inBuffer.getOutputStream().write(in.read());
+        if (size > inBuf.length) throw new IOException("Size is greater than maximum!");
+        if (size <= 0) throw new IOException("Size is smaller than or equal to zero!");
+
+        int read = 0;
+        while (read < size) {
+            int r = in.read(inBuf, read, size - read);
+            if (r <= 0) throw new IOException("End of stream");
+            read += r;
         }
+        inBuffer.getOutputStream().write(inBuf, 0, read);
     }
 
     public void writeDataToTunnel(OutputStream out) throws IOException {
         if (outBuffer.getAvailable() <= 0) return;
-        int read = outBuffer.getInputStream().read(buf);
-        if (read <= 0) return;
+        int read = outBuffer.getInputStream().read(outBuf);
+        if (read <= 0) throw new IOException("End of stream");
 
         // [1 byte - service id] [2 bytes - size] [data]
         out.write(id);
         out.write((read >> 8) & 0xFF);
         out.write(read & 0xFF);
-        out.write(buf, 0, read);
+        out.write(outBuf, 0, read);
     }
 
     // Write data to the tunnel
