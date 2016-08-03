@@ -58,7 +58,7 @@ public class Client {
 
             if (value.startsWith("connect:")) {
                 String[] partnerDetails = value.split(":");
-                if (partnerDetails.length != 3) {
+                if (partnerDetails.length != 4) {
                     socket.close();
                     throw new RuntimeException("Invalid data from server");
                 }
