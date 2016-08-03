@@ -7,17 +7,21 @@ import com.barchart.udt.TypeUDT;
 import com.barchart.udt.net.NetServerSocketUDT;
 import com.barchart.udt.net.NetSocketUDT;
 import com.barchart.udt.nio.KindUDT;
+import com.justinmichaud.remotesupport.common.CLI;
+import com.justinmichaud.remotesupport.common.PeerConnection;
 import com.sun.corba.se.spi.activation.Server;
+import org.bouncycastle.operator.OperatorCreationException;
 
 import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.security.GeneralSecurityException;
 import java.util.Scanner;
 
 public class Client {
 
-    public static void main(String... args) throws IOException {
+    public static void main(String... args) throws IOException, GeneralSecurityException, OperatorCreationException {
         System.setProperty(org.slf4j.impl.SimpleLogger.DEFAULT_LOG_LEVEL_KEY, "DEBUG");
         System.out.println("Client");
 
@@ -27,7 +31,8 @@ public class Client {
         BufferedInputStream in = new BufferedInputStream(socket.getInputStream());
 
         System.out.println("Connected");
-        send(socket.getOutputStream(), input("What is your username?"));
+        final String ourName = input("What is your username?");
+        send(socket.getOutputStream(), ourName);
         System.out.println(read(in));
 
         String partner = input("Who would you like to connect to?");
@@ -42,7 +47,8 @@ public class Client {
                     throw new RuntimeException("Invalid data from server");
                 }
 
-                connectToPartner(partnerDetails[1], Integer.parseInt(partnerDetails[2]), socket, false);
+                connectToPartner(ourName, partner, partnerDetails[1],
+                        Integer.parseInt(partnerDetails[2]), socket, false);
             }
             else System.out.println("Error: " + partnerResponse);
         }
@@ -57,7 +63,8 @@ public class Client {
                     throw new RuntimeException("Invalid data from server");
                 }
 
-                connectToPartner(partnerDetails[1], Integer.parseInt(partnerDetails[2]), socket, true);
+                connectToPartner(ourName, partnerDetails[1], partnerDetails[2],
+                        Integer.parseInt(partnerDetails[3]), socket, true);
             }
             else System.out.println(value);
 
@@ -69,10 +76,11 @@ public class Client {
         if (!socket.isClosed()) socket.close();
     }
 
-    private static void connectToPartner(String ip, int port, NetSocketUDT existingConnection, boolean isServer)
-            throws IOException {
-//        if (isServer && !input("Would you like to grant " + ip + ":" + port
-//                + " to have remote access to your computer?").equalsIgnoreCase("y")) return;
+    private static void connectToPartner(String ourName, String partnerName, String ip, int port,
+                                         NetSocketUDT existingConnection, boolean isServer)
+            throws IOException, GeneralSecurityException, OperatorCreationException {
+        if (isServer && !input("Would you like to grant " + ip + ":" + port
+                + " to have remote access to your computer?").equalsIgnoreCase("y")) return;
         System.out.println("Connect to " + ip + ":" + port + ". Server: " + isServer);
 
         int existingPort = existingConnection.socketUDT().getLocalInetPort();
@@ -99,10 +107,9 @@ public class Client {
         }
 
         System.out.println("Connected to " + socket.getInetAddress() + ":" + socket.getPort());
-        for (int i=0; i<10; i++) send(socket.getOutputStream(), "Hello from " + (isServer? "acceptor!":"connector!"));
-        while (!socket.isClosed() && socket.isConnected()) {
-            System.out.print(read(socket.getInputStream()));
-        }
+        try {
+            CLI.runCLI(new PeerConnection(ourName, partnerName, socket, isServer));
+        } catch (InterruptedException e) {}
         System.out.println("Closed.");
     }
 

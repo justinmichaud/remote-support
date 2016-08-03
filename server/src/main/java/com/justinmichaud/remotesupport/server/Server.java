@@ -106,8 +106,8 @@ public class Server {
                         ConnectionThread partner = mapping.get(username);
                         send("ok:" + partner.socket.getInetAddress().getHostAddress()
                                 + ":" + partner.socket.getPort());
-                        send(partner.getOutputStream(), "connect:" + socket.getInetAddress().getHostAddress()
-                                + ":" + socket.getPort());
+                        send(partner.getOutputStream(), "connect:" + name + ":" +
+                                socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
                     }
                     else {
                         send("offline");
