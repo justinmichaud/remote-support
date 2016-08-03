@@ -100,6 +100,8 @@ public class Client {
         NetSocketUDT socket = new NetSocketUDT();
         socket.socketUDT().bind(new InetSocketAddress(existingPort));
 
+        System.out.println("Listening for response on " + socket.getLocalPort() + " should be " + existingPort);
+
         for (int i=0; i<25; i++) {
             try {
                 socket.connect(new InetSocketAddress(ip, port));
