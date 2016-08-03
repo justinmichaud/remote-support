@@ -26,7 +26,7 @@ public class Client {
         System.out.println("Client");
 
         NetSocketUDT socket = new NetSocketUDT();
-        socket.connect(new InetSocketAddress("63.135.27.26", 40000));
+        socket.connect(new InetSocketAddress("172.16.1.216"/*"63.135.27.26"*/, 40000));
 
         BufferedInputStream in = new BufferedInputStream(socket.getInputStream());
 

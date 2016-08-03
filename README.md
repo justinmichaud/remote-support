@@ -9,10 +9,8 @@ It uses UDP hole punching to allow clients to connect through NATs. A publicly a
 
 # Left to implement
 
-- Do udp hole punching
-- Establish encrypted connection with public server, authenticate aliases
-
 - Fix bug causing vnc to work but ssh to fail - I suspect it has something to do with the buffering
+- Establish encrypted connection with public server, authenticate aliases
 
 - Improve performance
 - Make simple gui to allow the connection details to be entered

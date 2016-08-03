@@ -11,19 +11,19 @@ public class LocalTunnelServerService extends Service {
 
     private class ConnectPayload extends WorkerThreadManager.WorkerThreadPayload {
 
-        private final ServerSocket localServer;
+        private ServerSocket localServer;
         private Socket localSocket;
 
         public ConnectPayload() throws IOException {
             super("Local Tunnel Server Acceptor");
-
-            localServer = new ServerSocket(localPort);
-            localServer.setSoTimeout(100);
         }
 
         @Override
         public void start(WorkerThreadManager.WorkerThreadGroup group) throws Exception {
             System.out.println("Opening server port " + localPort + " -> " + remotePort);
+
+            localServer = new ServerSocket(localPort);
+            localServer.setSoTimeout(100);
 
             while (localSocket == null
                     && group.isRunning()) {

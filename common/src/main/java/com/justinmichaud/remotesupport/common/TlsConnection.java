@@ -48,9 +48,6 @@ public class TlsConnection {
         loadSSLContext();
 
         System.out.println("Your fingerprint is " + getFingerprint());
-        if (server && !prompt("Would you like to accept a connection from "
-                + baseSocket.getInetAddress() + ":" + baseSocket.getPort() + "?"))
-            throw new GeneralSecurityException("Connection Denied by User");
 
         socket = (SSLSocket) sslContext.getSocketFactory().createSocket(baseSocket,
                 baseSocket.getLocalAddress().getHostName(), baseSocket.getLocalPort(), true);
