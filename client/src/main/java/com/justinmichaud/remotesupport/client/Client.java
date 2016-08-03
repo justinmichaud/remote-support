@@ -80,7 +80,7 @@ public class Client {
                                          NetSocketUDT existingConnection, boolean isServer)
             throws IOException, GeneralSecurityException, OperatorCreationException {
         if (isServer && !input("Would you like to grant " + ip + ":" + port
-                + " to have remote access to your computer?").equalsIgnoreCase("y")) return;
+                + " remote access to your computer?").equalsIgnoreCase("y")) return;
         System.out.println("Connect to " + ip + ":" + port + ". Server: " + isServer);
 
         int existingPort = existingConnection.socketUDT().getLocalInetPort();
