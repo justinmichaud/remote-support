@@ -42,7 +42,6 @@ public class Client {
                     throw new RuntimeException("Invalid data from server");
                 }
 
-                socket.close(); //Make way for our new connection
                 connectToPartner(partnerDetails[1], Integer.parseInt(partnerDetails[2]), socket, false);
             }
             else System.out.println("Error: " + partnerResponse);
