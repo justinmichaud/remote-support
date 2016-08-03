@@ -6,6 +6,7 @@ import com.barchart.udt.SocketUDT;
 import com.barchart.udt.TypeUDT;
 import com.barchart.udt.net.NetServerSocketUDT;
 import com.barchart.udt.net.NetSocketUDT;
+import com.barchart.udt.nio.KindUDT;
 import com.sun.corba.se.spi.activation.Server;
 
 import java.io.*;
@@ -42,7 +43,7 @@ public class Client {
                 }
 
                 socket.close(); //Make way for our new connection
-                connectToPartner(partnerDetails[1], Integer.parseInt(partnerDetails[2]), socket);
+                connectToPartner(partnerDetails[1], Integer.parseInt(partnerDetails[2]), socket, false);
             }
             else System.out.println("Error: " + partnerResponse);
         }
@@ -57,7 +58,7 @@ public class Client {
                     throw new RuntimeException("Invalid data from server");
                 }
 
-                acceptFromPartner(partnerDetails[1], Integer.parseInt(partnerDetails[2]), socket);
+                connectToPartner(partnerDetails[1], Integer.parseInt(partnerDetails[2]), socket, true);
             }
             else System.out.println(value);
 
@@ -69,45 +70,25 @@ public class Client {
         if (!socket.isClosed()) socket.close();
     }
 
-    private static void acceptFromPartner(String ip, int port, NetSocketUDT existingConnection) throws IOException {
-        if (!input("Would you like to grant " + ip + ":" + port
-                + " to have remote access to your computer?").equalsIgnoreCase("y")) return;
-
-        //Re-use the existing connection so it passes through the nat
-        int existingPort = existingConnection.socketUDT().getLocalInetPort();
-        existingConnection.close();
-
-        System.out.println("Accept from " + ip + ":" + port + " on " + existingPort);
-        ServerSocket serverSocket = new NetServerSocketUDT();
-
-        serverSocket.bind(new InetSocketAddress(existingPort));
-        Socket socket = serverSocket.accept();
-
-        System.out.println("Accepted from " + socket.getInetAddress() + ":" + socket.getPort());
-        send(socket.getOutputStream(), "Hello from acceptor!");
-        while (!socket.isClosed() && socket.isConnected()) {
-            System.out.print(read(socket.getInputStream()));
-        }
-        System.out.println("Closed.");
-    }
-
-    private static void connectToPartner(String ip, int port, NetSocketUDT existingConnection) throws IOException {
-        System.out.println("Connect to " + ip + ":" + port);
+    private static void connectToPartner(String ip, int port, NetSocketUDT existingConnection, boolean isServer)
+            throws IOException {
+//        if (isServer && !input("Would you like to grant " + ip + ":" + port
+//                + " to have remote access to your computer?").equalsIgnoreCase("y")) return;
+        System.out.println("Connect to " + ip + ":" + port + ". Server: " + isServer);
 
         int existingPort = existingConnection.socketUDT().getLocalInetPort();
         existingConnection.close();
 
         NetSocketUDT socket = new NetSocketUDT();
+        socket.socketUDT().setRendezvous(true);
         socket.socketUDT().bind(new InetSocketAddress(existingPort));
 
-        System.out.println("Listening for response on " + socket.getLocalPort() + " should be " + existingPort);
-
-        for (int i=0; i<25; i++) {
+        for (int i=0; i<=5; i++) {
             try {
                 socket.connect(new InetSocketAddress(ip, port));
                 break;
             } catch (IOException e) {
-                if (i == 24) {
+                if (i == 5) {
                     e.printStackTrace();
                     return;
                 }
@@ -118,7 +99,7 @@ public class Client {
         }
 
         System.out.println("Connected to " + socket.getInetAddress() + ":" + socket.getPort());
-        for (int i=0; i<10; i++) send(socket.getOutputStream(), "Hello from connector!");
+        for (int i=0; i<10; i++) send(socket.getOutputStream(), "Hello from " + (isServer? "acceptor!":"connector!"));
         while (!socket.isClosed() && socket.isConnected()) {
             System.out.print(read(socket.getInputStream()));
         }
