@@ -71,29 +71,7 @@ public class CLIClient {
         System.out.println("Connecting to " + c.ip + ":" + c.port);
 
         try {
-            int existingPort = c.existingConnection.socketUDT().getLocalInetPort();
-            c.existingConnection.close();
-
-            NetSocketUDT socket = new NetSocketUDT();
-            socket.socketUDT().setRendezvous(true);
-            socket.socketUDT().bind(new InetSocketAddress(existingPort));
-
-            for (int i = 0; i <= 5; i++) {
-                try {
-                    socket.connect(new InetSocketAddress(c.ip, c.port));
-                    break;
-                } catch (IOException e) {
-                    if (i == 5) {
-                        e.printStackTrace();
-                        return;
-                    }
-                    Thread.sleep(1000);
-                }
-            }
-
-            System.out.println("Connected");
-            runCLI(new PeerConnection(c.username, c.partnerName, socket, c.isServer));
-            System.out.println("Closed.");
+            runCLI(c.connect());
 
         } catch (Exception e) {
             e.printStackTrace();

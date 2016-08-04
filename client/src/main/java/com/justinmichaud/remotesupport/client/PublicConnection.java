@@ -46,6 +46,30 @@ public class PublicConnection extends WorkerThreadManager.WorkerThreadPayload {
             this.existingConnection = existingConnection;
             this.isServer = isServer;
         }
+
+        public PeerConnection connect()
+                throws IOException, InterruptedException, GeneralSecurityException, OperatorCreationException {
+            //TODO make this async
+            int existingPort = existingConnection.socketUDT().getLocalInetPort();
+            existingConnection.close();
+
+            NetSocketUDT socket = new NetSocketUDT();
+            socket.socketUDT().setRendezvous(true);
+            socket.socketUDT().bind(new InetSocketAddress(existingPort));
+
+            for (int i = 0; i <= 5; i++) {
+                try {
+                    socket.connect(new InetSocketAddress(ip, port));
+                    break;
+                } catch (IOException e) {
+                    if (i == 5) {
+                        throw e;
+                    }
+                    Thread.sleep(1000);
+                }
+            }
+            return new PeerConnection(username, partnerName, socket, isServer);
+        }
     }
 
     public PublicConnection(InetSocketAddress publicAddress, String username, Runnable publicConnectedCallback,
