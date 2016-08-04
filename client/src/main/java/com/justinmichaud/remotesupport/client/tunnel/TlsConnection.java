@@ -18,6 +18,7 @@ import java.security.cert.*;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Scanner;
+import java.util.function.Function;
 
 public class TlsConnection {
 
@@ -32,10 +33,12 @@ public class TlsConnection {
     private File trustedKeystoreFile;
 
     private SSLSocket socket;
+    private final Function<String, String> prompter;
 
     public TlsConnection(String alias, String partnerAlias, Socket baseSocket, File privateKeystoreFile,
-                         File trustedKeystoreFile, boolean server)
+                         File trustedKeystoreFile, boolean server, Function<String, String> prompter)
             throws GeneralSecurityException, IOException, OperatorCreationException {
+        this.prompter = prompter;
         if (Security.getProvider("BC") == null)
             Security.addProvider(new BouncyCastleProvider());
 
@@ -155,10 +158,8 @@ public class TlsConnection {
         return fingerprint.substring(0, fingerprint.length());
     }
 
-    private static boolean prompt(String message) {
-        Scanner in = new Scanner(System.in); //Avoid closing because main thread uses System.in
-        System.out.println(message + " [y/N]");
-        return in.nextLine().equalsIgnoreCase("y");
+    private boolean prompt(String message) {
+        return prompter.apply(message + " [y/N]").equalsIgnoreCase("y");
     }
 
     private void addTrustedCertificate(X509Certificate cert) throws KeyStoreException, IOException,

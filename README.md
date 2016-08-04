@@ -10,7 +10,7 @@ The server/ subproject must be running on a publicly accessible server, so that 
 # Left to implement
 
 - Make simple gui to allow the connection details to be entered
-
+- Clean up the code - it is a mess
 - Ask the user to forward ports if udp hole punching doesn't work
 - Handle edge cases when two people try to connect to same computer
 - Launch vnc and ssh server from gui

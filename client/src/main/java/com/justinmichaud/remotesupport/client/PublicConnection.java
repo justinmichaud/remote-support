@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public class PublicConnection extends WorkerThreadManager.WorkerThreadPayload {
 
@@ -21,13 +22,14 @@ public class PublicConnection extends WorkerThreadManager.WorkerThreadPayload {
     private final String username;
     private final Runnable publicConnectedCallback;
     private final Consumer<Connection> connectCallback;
+    private final Function<String,String> prompter;
 
     private BufferedInputStream in;
     private BufferedOutputStream out;
 
     private boolean nameOk = false;
 
-    public static class Connection {
+    public class Connection {
 
         public final String username;
         public final String partnerName;
@@ -68,18 +70,19 @@ public class PublicConnection extends WorkerThreadManager.WorkerThreadPayload {
                     Thread.sleep(1000);
                 }
             }
-            return new PeerConnection(username, partnerName, socket, isServer);
+            return new PeerConnection(username, partnerName, socket, isServer, prompter);
         }
     }
 
     public PublicConnection(InetSocketAddress publicAddress, String username, Runnable publicConnectedCallback,
-                            Consumer<Connection> connectCallback)
+                            Consumer<Connection> connectCallback, Function<String, String> prompter)
             throws ExceptionUDT {
         super("Public connection");
         this.publicAddress = publicAddress;
         this.username = username;
         this.publicConnectedCallback = publicConnectedCallback;
         this.connectCallback = connectCallback;
+        this.prompter = prompter;
         socket = new NetSocketUDT();
     }
 

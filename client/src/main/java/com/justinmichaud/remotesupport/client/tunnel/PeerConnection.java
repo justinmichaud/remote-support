@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
 import java.security.GeneralSecurityException;
+import java.util.function.Function;
 
 public class PeerConnection {
 
@@ -16,7 +17,8 @@ public class PeerConnection {
 
     private final Logger logger;
 
-    public PeerConnection(String alias, String partnerAlias, Socket baseSocket, boolean server)
+    public PeerConnection(String alias, String partnerAlias, Socket baseSocket, boolean server,
+                          Function<String, String> prompter)
             throws GeneralSecurityException, IOException, OperatorCreationException {
         logger = LoggerFactory.getLogger("Peer Connection");
 
@@ -24,7 +26,7 @@ public class PeerConnection {
 
         tlsConnection = new TlsConnection(alias, partnerAlias, baseSocket,
                 new File(alias.replaceAll("\\W+", "") + "_private.jks"),
-                new File(alias.replaceAll("\\W+", "") + "_trusted.jks"), server);
+                new File(alias.replaceAll("\\W+", "") + "_trusted.jks"), server, prompter);
         serviceManager = new ServiceManager(tlsConnection, this::onStopped);
     }
 

@@ -23,6 +23,8 @@ public class ConnectForm {
         frame.setVisible(true);
 
         connectButton.addActionListener(e -> {
+            connectButton.setEnabled(false);
+
             frame.setContentPane(new PeerForm(frame).root);
             frame.pack();
         });
