@@ -44,15 +44,16 @@ public class PeerConnection {
     }
 
     private void onStopped() {
-        if (!isRunning()) return;
+        if (onClose != null) {
+            onClose.run();
+            onClose = null;
+        }
 
         try {
-            tlsConnection.close();
+            if (!tlsConnection.isClosed()) tlsConnection.close();
         } catch (IOException e) {
             logger.error("Error closing tls connection:", e);
         }
-
-        if (onClose != null) onClose.run();
     }
 
     public void stop() {

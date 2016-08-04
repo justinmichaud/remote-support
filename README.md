@@ -2,20 +2,27 @@
 
 This is a work-in-progress remote support tool, designed to allow forwarding ssh and/or vnc connections securely over the internet.
 
+![screenshot 1](https://raw.githubusercontent.com/jtjj222/remote-support/master/images/screen1.png)
+
+# Status
+
+Currently, it can forward any tcp connection over a channel encrypted by TLSv1.2, with public key authentication, through certain types of NATs.
+It is not ready for production yet, and is very buggy. While it should work on other platforms, it has only been tested on Linux.
+
 # How it works
 
 It uses UDP hole punching to allow clients to connect through a network address translator.
 The server/ subproject must be running on a publicly accessible server, so that the clients can learn each other's public ip addresses.
+Each client then tries to connect directly to the other, attempting to re-use the routing rules from the public connection.
+This project uses Barchart UDT to provide reliable UDP data transfer, and BouncyCastle to provide encryption.
 
 # Left to implement
 
-- Clean up the code - it is a mess
-- Make the gui more user friendly, and create a more general way for the gui to interact with the tunnel
-- Ask the user to forward ports if udp hole punching doesn't work
-- Handle edge cases when two people try to connect to same computer
-- Launch vnc and ssh server from gui
-- Establish encrypted connection with public server, authenticate aliases
-- Improve performance
+- Replace threaded portions with nio (and possibly use netty) to get around the limitations/bugs/performance issues from having multiple threads that can't be interrupted when doing socket reads
 - Clean up the services code
-- Replace threaded portions with nio (and possibly barchart udt with netty) to get around the limitations/bugs/performance issues from having multiple threads that can't be interrupted when doing socket reads
-
+- Fix error handling and logging, allowing users to see exactly what is going on
+- Make the gui more user friendly, and decouple all of the tunnel classes from gathering input
+- Improve performance
+- Establish encrypted connection with public server, authenticate aliases
+- Ask the user to forward ports if udp hole punching doesn't work, and possibly allow using a relay server
+- Launch vnc and ssh server remotely
