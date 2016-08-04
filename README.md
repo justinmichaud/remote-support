@@ -14,8 +14,8 @@ The server/ subproject must be running on a publicly accessible server, so that 
 - Ask the user to forward ports if udp hole punching doesn't work
 - Handle edge cases when two people try to connect to same computer
 - Launch vnc and ssh server from gui
-
 - Establish encrypted connection with public server, authenticate aliases
 - Improve performance
+- Clean up the services code, and decouple it from input and output so that a better gui can be developed
 - Replace threaded portions with nio (and possibly barchart udt with netty) to get around the limitations/bugs/performance issues from having multiple threads that can't be interrupted when doing socket reads
 
