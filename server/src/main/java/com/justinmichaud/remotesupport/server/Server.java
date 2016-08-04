@@ -74,7 +74,7 @@ public class Server {
 
             //TODO verify user identity
             if (mapping.containsKey(name)) {
-                send(socket.getOutputStream(), "error: There is already a connected user with this name");
+                send(socket.getOutputStream(), "name_error: There is already a connected user with this name");
 
                 throw new IllegalArgumentException("There is already a connected user with this name: "
                         + name);
@@ -104,9 +104,9 @@ public class Server {
                     if (mapping.containsKey(username)) {
                         // Start NAT traversal
                         ConnectionThread partner = mapping.get(username);
-                        send("ok:" + partner.socket.getInetAddress().getHostAddress()
+                        send("ok:" + name + ":" + username + ":" + partner.socket.getInetAddress().getHostAddress()
                                 + ":" + partner.socket.getPort());
-                        send(partner.getOutputStream(), "connect:" + name + ":" +
+                        send(partner.getOutputStream(), "connect:" + username + ":" + name + ":" +
                                 socket.getInetAddress().getHostAddress() + ":" + socket.getPort());
                     }
                     else {
