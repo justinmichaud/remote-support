@@ -7,6 +7,7 @@ import org.bouncycastle.operator.OperatorCreationException;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
 import java.util.Scanner;
 import java.util.Set;
@@ -20,7 +21,8 @@ public class CLIClient {
         System.setProperty(org.slf4j.impl.SimpleLogger.DEFAULT_LOG_LEVEL_KEY, "DEBUG");
         System.out.println("Client");
 
-        SimpleClient client = new SimpleClient(CLIClient::input, CLIClient::runCLI);
+        SimpleClient client = new SimpleClient(CLIClient::input, CLIClient::runCLI,
+                new InetSocketAddress("172.16.1.216"/*"63.135.27.26"*/, 40000));
 
         while (client.isRunning()) {
             try {

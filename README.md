@@ -9,13 +9,13 @@ The server/ subproject must be running on a publicly accessible server, so that 
 
 # Left to implement
 
-- Make simple gui to allow the connection details to be entered
 - Clean up the code - it is a mess
+- Make the gui more user friendly, and create a more general way for the gui to interact with the tunnel
 - Ask the user to forward ports if udp hole punching doesn't work
 - Handle edge cases when two people try to connect to same computer
 - Launch vnc and ssh server from gui
 - Establish encrypted connection with public server, authenticate aliases
 - Improve performance
-- Clean up the services code, and decouple it from input and output so that a better gui can be developed
+- Clean up the services code
 - Replace threaded portions with nio (and possibly barchart udt with netty) to get around the limitations/bugs/performance issues from having multiple threads that can't be interrupted when doing socket reads
 

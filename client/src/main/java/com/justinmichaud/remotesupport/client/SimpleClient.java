@@ -17,13 +17,12 @@ public class SimpleClient {
     private Consumer<PeerConnection> connectedCallback;
 
     public SimpleClient(Function<String, String> prompter,
-                        Consumer<PeerConnection> connectedCallback) throws ExceptionUDT {
+                        Consumer<PeerConnection> connectedCallback, InetSocketAddress addr) throws ExceptionUDT {
         this.prompter = prompter;
         this.connectedCallback = connectedCallback;
         workerThreadManager = new WorkerThreadManager(null);
 
-        publicConnection = new PublicConnection(
-                new InetSocketAddress("172.16.1.216"/*"63.135.27.26"*/, 40000),
+        publicConnection = new PublicConnection(addr,
                 prompter.apply("What is your username?"), this::connected, this::connectToPartner, prompter);
         workerThreadManager.makeGroup("PublicConnection", null).addWorkerThread(publicConnection);
 

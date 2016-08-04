@@ -14,6 +14,7 @@ public class PeerConnection {
 
     public final ServiceManager serviceManager;
     private final TlsConnection tlsConnection;
+    private Runnable onClose;
 
     private final Logger logger;
 
@@ -50,11 +51,17 @@ public class PeerConnection {
         } catch (IOException e) {
             logger.error("Error closing tls connection:", e);
         }
+
+        if (onClose != null) onClose.run();
     }
 
     public void stop() {
         if (!isRunning()) return;
 
         serviceManager.stop();
+    }
+
+    public void setOnClose(Runnable onClose) {
+        this.onClose = onClose;
     }
 }
