@@ -29,5 +29,7 @@ subprojects {
         compile group: 'com.barchart.udt', name: 'barchart-udt-bundle', version: '2.3.0'
         // https://mvnrepository.com/artifact/org.slf4j/slf4j-simple
         compile group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.21'
+        // https://mvnrepository.com/artifact/io.netty/netty-all
+        compile group: 'io.netty', name: 'netty-all', version: '4.1.4.Final'
     }
 }
