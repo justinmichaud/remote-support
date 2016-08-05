@@ -18,9 +18,13 @@ This project uses Barchart UDT to provide reliable UDP data transfer, and Bouncy
 
 # Left to implement
 
-- Replace threaded portions with nio (and possibly use netty) to get around the limitations/bugs/performance issues from having multiple threads that can't be interrupted when doing socket reads
-- Clean up the services code
-- Fix error handling and logging, allowing users to see exactly what is going on
+- Replace threaded portions with nio + netty to get around the limitations/bugs/performance issues from the current setup:
+    - Forward a tcp connection with netty
+    - Establish rendezvous connection using netty, udt and ssl
+    - Allow each service to be added to the channel pipeline
+    - Fix error handling and logging, allowing users to see exactly what is going on
+
+
 - Make the gui more user friendly, and decouple all of the tunnel classes from gathering input
 - Improve performance
 - Establish encrypted connection with public server, authenticate aliases
