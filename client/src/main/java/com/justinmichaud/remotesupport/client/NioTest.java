@@ -8,14 +8,19 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.channel.udt.UdtChannel;
+import io.netty.channel.udt.nio.NioUdtProvider;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.ssl.SslContext;
+import io.netty.util.concurrent.DefaultThreadFactory;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.util.Scanner;
+import java.util.concurrent.ThreadFactory;
 
 /*
  * Testing for NIO implementation
@@ -26,6 +31,12 @@ public class NioTest {
     private static class TcpForwardPeerHandlerConnector extends ChannelInboundHandlerAdapter {
 
         private volatile Channel tunnel;
+        private final EventLoopGroup group;
+
+        public TcpForwardPeerHandlerConnector(EventLoopGroup group) {
+            super();
+            this.group = group;
+        }
 
         @Override
         public void channelActive(ChannelHandlerContext ctx) {
@@ -33,7 +44,7 @@ public class NioTest {
             peer.config().setOption(ChannelOption.AUTO_READ, false);
 
             Bootstrap b = new Bootstrap();
-            b.group(peer.eventLoop());
+            b.group(group);
             b.channel(NioSocketChannel.class);
             b.handler(new TcpForwardTunnelHandler(peer));
 
@@ -94,6 +105,12 @@ public class NioTest {
     private static class TcpForwardPeerHandlerAcceptor extends ChannelInboundHandlerAdapter {
 
         private volatile Channel tunnel;
+        private final EventLoopGroup group;
+
+        public TcpForwardPeerHandlerAcceptor(EventLoopGroup group) {
+            super();
+            this.group = group;
+        }
 
         @Override
         public void channelActive(ChannelHandlerContext ctx) {
@@ -101,7 +118,7 @@ public class NioTest {
             peer.config().setOption(ChannelOption.AUTO_READ, false);
 
             ServerBootstrap b = new ServerBootstrap();
-            b.group(peer.eventLoop());
+            b.group(group);
             b.channel(NioServerSocketChannel.class);
             b.childHandler(new ChannelInitializer<SocketChannel>() {
                @Override
@@ -215,69 +232,29 @@ public class NioTest {
         }
     }
 
-    public static void server() throws InterruptedException {
-        System.out.println("Start server");
+    public static void rv(boolean acceptor, InetSocketAddress us, InetSocketAddress peer) throws InterruptedException {
+        System.out.println("Start " + (acceptor? "acceptor":"connector"));
 
         final SslContext ctx = null;
 
-        EventLoopGroup bossGroup = new NioEventLoopGroup(1);
-        EventLoopGroup workerGroup = new NioEventLoopGroup();
-
-        try {
-            ServerBootstrap b = new ServerBootstrap();
-            b.group(bossGroup, workerGroup);
-            b.channel(NioServerSocketChannel.class);
-            b.option(ChannelOption.SO_BACKLOG, 1);
-            b.handler(new LoggingHandler(LogLevel.INFO));
-            b.childHandler(new ChannelInitializer<SocketChannel>() {
-                @Override
-                protected void initChannel(SocketChannel ch) throws Exception {
-                    ChannelPipeline pipeline = ch.pipeline();
-                    pipeline.addLast(new LoggingHandler(LogLevel.DEBUG));
-                    if (ctx != null) pipeline.addLast(ctx.newHandler(ch.alloc()));
-                    pipeline.addLast(new TcpForwardPeerHandlerConnector());
-                }
-            });
-
-            ChannelFuture f = b.bind(5000).sync();
-
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                try {
-                    f.channel().close().sync();
-                } catch (InterruptedException e) {}
-            }));
-
-            while (!f.channel().closeFuture().isDone()) {
-                Thread.sleep(100);
-            }
-        } finally {
-            bossGroup.shutdownGracefully();
-            workerGroup.shutdownGracefully();
-        }
-
-        System.out.println("Closed");
-    }
-
-    public static void client() throws InterruptedException {
-        System.out.println("Start client");
-
-        final SslContext ctx = null;
-
-        EventLoopGroup group = new NioEventLoopGroup();
+        final ThreadFactory connectFactory = new DefaultThreadFactory("rendezvous");
+        final EventLoopGroup rendezvousGroup = new NioEventLoopGroup(1, connectFactory, NioUdtProvider.MESSAGE_PROVIDER);
+        final EventLoopGroup tunnelGroup = new NioEventLoopGroup();
         try {
             Bootstrap b = new Bootstrap();
-            b.group(group);
-            b.channel(NioSocketChannel.class);
-            b.handler(new ChannelInitializer<SocketChannel>() {
+            b.group(rendezvousGroup);
+            b.channelFactory(NioUdtProvider.BYTE_RENDEZVOUS);
+            b.handler(new ChannelInitializer<UdtChannel>() {
                 @Override
-                protected void initChannel(SocketChannel ch) throws Exception {
+                protected void initChannel(UdtChannel ch) throws Exception {
                     ChannelPipeline pipeline = ch.pipeline();
                     if (ctx != null) pipeline.addLast(ctx.newHandler(ch.alloc()));
-                    pipeline.addLast(new TcpForwardPeerHandlerAcceptor());
+                    if (acceptor) pipeline.addLast(new TcpForwardPeerHandlerAcceptor(tunnelGroup));
+                    else pipeline.addLast(new TcpForwardPeerHandlerConnector(tunnelGroup));
                 }
             });
 
-            ChannelFuture f = b.connect("localhost", 5000).sync();
+            ChannelFuture f = b.connect(peer, us).sync();
 
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 try {
@@ -289,7 +266,8 @@ public class NioTest {
                 Thread.sleep(100);
             }
         } finally {
-            group.shutdownGracefully();
+            rendezvousGroup.shutdownGracefully();
+            tunnelGroup.shutdownGracefully();
         }
 
         System.out.println("Closed");
@@ -299,8 +277,8 @@ public class NioTest {
         System.out.println("Would you like to start a server [s] or client [c]?");
         boolean server = new Scanner(System.in).nextLine().equalsIgnoreCase("s");
 
-        if (server) server();
-        else client();
+        if (server) rv(true, new InetSocketAddress("localhost", 5000), new InetSocketAddress("localhost", 8000));
+        else rv(false, new InetSocketAddress("localhost", 8000), new InetSocketAddress("localhost", 5000));
     }
 
 }
