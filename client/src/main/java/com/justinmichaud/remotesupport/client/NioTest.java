@@ -10,15 +10,16 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.channel.udt.UdtChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
-import io.netty.handler.logging.LogLevel;
-import io.netty.handler.logging.LoggingHandler;
-import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslHandler;
 import io.netty.util.concurrent.DefaultThreadFactory;
-import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
+import org.bouncycastle.operator.OperatorCreationException;
 
+import javax.net.ssl.SSLEngine;
+import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.security.GeneralSecurityException;
 import java.util.Scanner;
 import java.util.concurrent.ThreadFactory;
 
@@ -27,7 +28,6 @@ import java.util.concurrent.ThreadFactory;
  */
 public class NioTest {
 
-    // Send traffic from port 4999 <> 5000 <> 5001
     private static class TcpForwardPeerHandlerConnector extends ChannelInboundHandlerAdapter {
 
         private volatile Channel tunnel;
@@ -48,17 +48,17 @@ public class NioTest {
             b.channel(NioSocketChannel.class);
             b.handler(new TcpForwardTunnelHandler(peer));
 
-            ChannelFuture f = b.connect("localhost", 5001);
+            ChannelFuture f = b.connect("localhost", 22);
             tunnel = f.channel();
-            f.addListener(new GenericFutureListener<Future<? super Void>>() {
+            f.addListener(new GenericFutureListener<ChannelFuture>() {
                 @Override
-                public void operationComplete(Future<? super Void> future) throws Exception {
+                public void operationComplete(ChannelFuture future) throws Exception {
                     if (future.isSuccess()) {
                         System.out.println("Connected to tunnel");
                         peer.read();
                     } else {
-                        System.out.println("Error connecting to tunnel - retrying");
-                        f.channel().connect(f.channel().remoteAddress()).addListener(this);
+                        System.out.println("Error connecting to tunnel");
+                        peer.close();
                     }
                 }
             });
@@ -118,6 +118,7 @@ public class NioTest {
             peer.config().setOption(ChannelOption.AUTO_READ, false);
 
             ServerBootstrap b = new ServerBootstrap();
+            b.option(ChannelOption.SO_REUSEADDR, true);
             b.group(group);
             b.channel(NioServerSocketChannel.class);
             b.childHandler(new ChannelInitializer<SocketChannel>() {
@@ -232,29 +233,44 @@ public class NioTest {
         }
     }
 
-    public static void rv(boolean acceptor, InetSocketAddress us, InetSocketAddress peer) throws InterruptedException {
-        System.out.println("Start " + (acceptor? "acceptor":"connector"));
+    public static void rv(boolean server, InetSocketAddress us, InetSocketAddress peer)
+            throws InterruptedException, GeneralSecurityException, IOException, OperatorCreationException {
+        System.out.println("Start " + (server? "server":"client"));
 
-        final SslContext ctx = null;
+        final SSLEngine engine = getSSLEngine(server);
 
         final ThreadFactory connectFactory = new DefaultThreadFactory("rendezvous");
         final EventLoopGroup rendezvousGroup = new NioEventLoopGroup(1, connectFactory, NioUdtProvider.MESSAGE_PROVIDER);
         final EventLoopGroup tunnelGroup = new NioEventLoopGroup();
         try {
             Bootstrap b = new Bootstrap();
+            b.option(ChannelOption.SO_REUSEADDR, true);
             b.group(rendezvousGroup);
             b.channelFactory(NioUdtProvider.BYTE_RENDEZVOUS);
             b.handler(new ChannelInitializer<UdtChannel>() {
                 @Override
                 protected void initChannel(UdtChannel ch) throws Exception {
                     ChannelPipeline pipeline = ch.pipeline();
-                    if (ctx != null) pipeline.addLast(ctx.newHandler(ch.alloc()));
-                    if (acceptor) pipeline.addLast(new TcpForwardPeerHandlerAcceptor(tunnelGroup));
-                    else pipeline.addLast(new TcpForwardPeerHandlerConnector(tunnelGroup));
+
+                    SslHandler sslHandler = new SslHandler(engine);
+                    pipeline.addLast(sslHandler);
+
+                    sslHandler.handshakeFuture().addListener(future -> {
+                        if (!future.isSuccess()) {
+                            System.out.println("Error during ssl handshake");
+                            future.cause().printStackTrace();
+                            ch.close();
+                            return;
+                        }
+                        if (server) pipeline.addLast(new TcpForwardPeerHandlerAcceptor(tunnelGroup));
+                        else pipeline.addLast(new TcpForwardPeerHandlerConnector(tunnelGroup));
+                        pipeline.fireChannelActive();
+                    });
                 }
             });
 
             ChannelFuture f = b.connect(peer, us).sync();
+            System.out.println("Connected to peer - Authenticating");
 
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 try {
@@ -265,6 +281,8 @@ public class NioTest {
             while (!f.channel().closeFuture().isDone()) {
                 Thread.sleep(100);
             }
+
+            System.out.println("Done.");
         } finally {
             rendezvousGroup.shutdownGracefully();
             tunnelGroup.shutdownGracefully();
@@ -273,7 +291,24 @@ public class NioTest {
         System.out.println("Closed");
     }
 
-    public static void main(String... args) throws InterruptedException {
+    private static SSLEngine getSSLEngine(boolean server) throws GeneralSecurityException, IOException, OperatorCreationException {
+        String alias = server?"server":"client";
+        String partnerAlias = server?"client":"server";
+
+        SSLEngine engine = NioTestTlsManager.getSSLContext(partnerAlias,
+                new File(alias.replaceAll("\\W+", "") + "_private.jks"),
+                new File(alias.replaceAll("\\W+", "") + "_trusted.jks"),
+                prompt -> {
+                    System.out.println(prompt);
+                    return new Scanner(System.in).nextLine();
+                }).createSSLEngine();
+        engine.setUseClientMode(server);
+        engine.setNeedClientAuth(true);
+
+        return engine;
+    }
+
+    public static void main(String... args) throws InterruptedException, GeneralSecurityException, IOException, OperatorCreationException {
         System.out.println("Would you like to start a server [s] or client [c]?");
         boolean server = new Scanner(System.in).nextLine().equalsIgnoreCase("s");
 
