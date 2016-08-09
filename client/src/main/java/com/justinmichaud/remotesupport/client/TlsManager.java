@@ -24,13 +24,13 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Date;
 
-public class NioTestTlsManager {
+public class TlsManager {
 
     private final static String SSL_VERSION = "TLSv1.2";
     private final static char[] keystorePassword = "1".toCharArray();
 
     public static SSLContext getSSLContext(String partnerName, File privateKeystoreFile,
-                                           File trustedKeystoreFile, NioTestTunnelEventHandler eh)
+                                           File trustedKeystoreFile, TunnelEventHandler eh)
             throws GeneralSecurityException, IOException, OperatorCreationException {
         if (Security.getProvider("BC") == null)
             Security.addProvider(new BouncyCastleProvider());
@@ -178,7 +178,7 @@ public class NioTestTlsManager {
 
     private static void checkCertificateTrusted(X509Certificate[] chain, KeyStore trustedKeys,
                                                 String partnerName, File trustedKeystoreFile,
-                                                NioTestTunnelEventHandler eh) throws CertificateException {
+                                                TunnelEventHandler eh) throws CertificateException {
         if (chain == null || chain.length != 1)
             throw new CertificateException("Chain Length Not Correct");
 
@@ -205,7 +205,7 @@ public class NioTestTlsManager {
         }
     }
 
-    private static void trustStart(NioTestTunnelEventHandler eh, KeyStore privateKey)
+    private static void trustStart(TunnelEventHandler eh, KeyStore privateKey)
             throws KeyStoreException, CertificateEncodingException, NoSuchAlgorithmException {
         X509Certificate cert = (X509Certificate) privateKey.getCertificate("cert");
         eh.trustStart(cert, getCertificateFingerprint(cert));

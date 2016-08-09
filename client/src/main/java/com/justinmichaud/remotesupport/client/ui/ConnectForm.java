@@ -3,7 +3,7 @@ package com.justinmichaud.remotesupport.client.ui;
 import com.barchart.udt.ExceptionUDT;
 import com.intellij.uiDesigner.core.GridConstraints;
 import com.intellij.uiDesigner.core.GridLayoutManager;
-import com.justinmichaud.remotesupport.client.SimpleClient;
+import com.justinmichaud.remotesupport.client.tunnel.SimpleClient;
 import org.bouncycastle.util.io.TeeOutputStream;
 
 import javax.swing.*;

@@ -1,4 +1,4 @@
-package com.justinmichaud.remotesupport.client;
+package com.justinmichaud.remotesupport.client.tunnel;
 
 import com.barchart.udt.ErrorUDT;
 import com.barchart.udt.ExceptionUDT;

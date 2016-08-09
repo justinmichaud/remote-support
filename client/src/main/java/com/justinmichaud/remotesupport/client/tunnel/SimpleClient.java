@@ -1,7 +1,8 @@
-package com.justinmichaud.remotesupport.client;
+package com.justinmichaud.remotesupport.client.tunnel;
 
 import com.barchart.udt.ExceptionUDT;
 import com.justinmichaud.remotesupport.client.tunnel.PeerConnection;
+import com.justinmichaud.remotesupport.client.tunnel.PublicConnection;
 import com.justinmichaud.remotesupport.common.WorkerThreadManager;
 
 import java.io.IOException;

@@ -6,7 +6,7 @@ import java.security.cert.X509Certificate;
 import java.util.Scanner;
 import java.util.concurrent.RejectedExecutionException;
 
-public class NioTestTunnelEventHandler {
+public class TunnelEventHandler {
 
     private String cliPrompt(String msg) {
         System.out.println("Prompt: " + msg);
