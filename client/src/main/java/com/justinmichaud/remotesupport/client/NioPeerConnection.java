@@ -1,5 +1,6 @@
 package com.justinmichaud.remotesupport.client;
 
+import com.justinmichaud.remotesupport.client.services.*;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -40,8 +41,6 @@ public class NioPeerConnection {
 
         final ThreadFactory connectFactory = new DefaultThreadFactory("rendezvous");
         final EventLoopGroup rendezvousGroup = new NioEventLoopGroup(1, connectFactory, NioUdtProvider.MESSAGE_PROVIDER);
-        final EventLoopGroup peerGroup = new NioEventLoopGroup();
-        final EventLoopGroup tunnelGroup = new NioEventLoopGroup();
         try {
             Bootstrap b = new Bootstrap();
             b.option(ChannelOption.SO_REUSEADDR, true);
@@ -60,10 +59,10 @@ public class NioPeerConnection {
                         if (future.isSuccess()) {
                             eh.debug("SSL handshake done");
 
-                            if (server) pipeline.addLast(peerGroup, new PipelinePeerHandlerAcceptor(tunnelGroup, eh));
-                            else pipeline.addLast(peerGroup, new PipelinePeerHandlerConnector(tunnelGroup, eh));
+                            final ServiceManager serviceManager = new ServiceManager(eh, pipeline);
 
-                            pipeline.fireChannelActive();
+                            if (server) serviceManager.addService(new PortForwardServerService(1, serviceManager));
+                            else serviceManager.addService(new PortForwardClientService(1, serviceManager));
                         }
                         else {
                             eh.error("Error during SSL handshake", future.cause());
@@ -93,8 +92,6 @@ public class NioPeerConnection {
             eh.error("Interrupted while waiting for connection to close", e);
         } finally {
             rendezvousGroup.shutdownGracefully().syncUninterruptibly();
-            peerGroup.shutdownGracefully().syncUninterruptibly();
-            tunnelGroup.shutdownGracefully().syncUninterruptibly();
         }
 
         eh.connectionClosed();

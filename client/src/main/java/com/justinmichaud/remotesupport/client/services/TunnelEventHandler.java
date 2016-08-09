@@ -1,4 +1,4 @@
-package com.justinmichaud.remotesupport.client;
+package com.justinmichaud.remotesupport.client.services;
 
 import io.netty.channel.ChannelFuture;
 
@@ -63,5 +63,9 @@ public class TunnelEventHandler {
                 f.channel().close().sync();
             } catch (InterruptedException|RejectedExecutionException e) {}
         }));
+    }
+
+    public void serviceClosed(Service service) {
+        System.out.println("Service " + service.name + ":" + service.id + " closed.");
     }
 }

@@ -1,44 +1,39 @@
-package com.justinmichaud.remotesupport.client;
+package com.justinmichaud.remotesupport.client.services;
 
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 
-abstract class PipelinePeerHandler extends ChannelInboundHandlerAdapter {
+abstract class PortForwardServiceHandler extends ServiceHandler {
 
     protected volatile Channel tunnel;
-    protected final EventLoopGroup group;
-    protected final TunnelEventHandler eh;
 
-    public PipelinePeerHandler(EventLoopGroup group, TunnelEventHandler eh) {
-        super();
-        this.group = group;
-        this.eh = eh;
+    public PortForwardServiceHandler(Service service) {
+        super(service);
     }
 
     protected abstract void establishTunnel(Channel peer);
 
     @Override
-    public void channelActive(ChannelHandlerContext ctx) {
+    public void onChannelActive(ChannelHandlerContext ctx) {
         Channel peer = ctx.channel();
         peer.config().setOption(ChannelOption.AUTO_READ, false);
 
         establishTunnel(ctx.channel());
 
         // Wait until we are connected to the tunnel
-        // This handler must be on a separate thread group, otherwise it will block the event thread
+        // This handler must be on a separate thread logicGroup, otherwise it will block the event thread
         while (tunnel == null && !peer.eventLoop().isShuttingDown()) {
             try {
                 Thread.sleep(10);
             } catch (InterruptedException e) {
-                eh.debug("Interrupted waiting for tunnel");
+                debug("Interrupted waiting for tunnel");
                 peer.close();
             }
         }
     }
 
     @Override
-    public void channelInactive(ChannelHandlerContext ctx) {
-        eh.log("Connection to peer closed");
+    public void onChannelInactive(ChannelHandlerContext ctx) {
         if (tunnel != null) closeOnFlush(tunnel);
     }
 
@@ -47,7 +42,7 @@ abstract class PipelinePeerHandler extends ChannelInboundHandlerAdapter {
         Channel peer = ctx.channel();
 
         if (tunnel == null || !tunnel.isActive()) {
-            eh.debug("Attempted to read from a tunnel that is closed");
+            debug("Attempted to read from a tunnel that is closed");
             closeOnFlush(peer);
             return;
         }
@@ -55,7 +50,7 @@ abstract class PipelinePeerHandler extends ChannelInboundHandlerAdapter {
         tunnel.writeAndFlush(msg).addListener(future -> {
             if (future.isSuccess()) peer.read();
             else {
-                eh.error("Error reading from peer", future.cause());
+                debugError("Error reading from peer", future.cause());
                 peer.close();
             }
         });
@@ -63,7 +58,7 @@ abstract class PipelinePeerHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        eh.error("Peer connection error", cause);
+        error("Peer connection error", cause);
         closeOnFlush(ctx.channel());
     }
 

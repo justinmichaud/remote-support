@@ -1,16 +1,16 @@
-package com.justinmichaud.remotesupport.client;
+package com.justinmichaud.remotesupport.client.services;
 
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 
-class TcpForwardTunnelHandler extends ChannelInboundHandlerAdapter {
+class PortForwardServiceTunnelHandler extends ChannelInboundHandlerAdapter {
 
     private volatile Channel peer;
-    private final TunnelEventHandler eh;
+    private final Service service;
 
-    public TcpForwardTunnelHandler(Channel peer, TunnelEventHandler eh) {
+    public PortForwardServiceTunnelHandler(Channel peer, Service service) {
         this.peer = peer;
-        this.eh = eh;
+        this.service = service;
     }
 
     @Override
@@ -21,8 +21,8 @@ class TcpForwardTunnelHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
-        eh.debug("Connection to tunnel closed");
-        if (peer != null) closeOnFlush(peer);
+        service.serviceManager.eh.debug("Service " + service.name + ":" + service.id
+                + ": Connection to tunnel closed");
     }
 
     @Override
@@ -30,7 +30,8 @@ class TcpForwardTunnelHandler extends ChannelInboundHandlerAdapter {
         Channel tunnel = ctx.channel();
 
         if (peer == null || !peer.isActive()) {
-            eh.debug("Attempted to read from a peer that is closed");
+            service.serviceManager.eh.debug("Service " + service.name + ":" + service.id
+                    + ": Attempted to read from a peer that is closed");
             closeOnFlush(tunnel);
             return;
         }
@@ -38,7 +39,8 @@ class TcpForwardTunnelHandler extends ChannelInboundHandlerAdapter {
         peer.writeAndFlush(msg).addListener(future -> {
             if (future.isSuccess()) tunnel.read();
             else {
-                eh.debugError("Error reading from tunnel", future.cause());
+                service.serviceManager.eh.debugError("Service " + service.name + ":" + service.id
+                        + ": Error reading from tunnel", future.cause());
                 tunnel.close();
             }
         });
@@ -46,8 +48,10 @@ class TcpForwardTunnelHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        eh.debugError("Tunnel error", cause);
+        service.serviceManager.eh.debugError("Service " + service.name + ":" + service.id
+                + ": Tunnel error", cause);
         closeOnFlush(ctx.channel());
+        service.removeFromPipeline();
     }
 
     public static void closeOnFlush(Channel ch) {
