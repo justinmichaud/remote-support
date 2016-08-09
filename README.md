@@ -19,9 +19,8 @@ This project uses Barchart UDT to provide reliable UDP data transfer, and Bouncy
 # Left to implement
 
 - Replace threaded portions with nio + netty to get around the limitations/bugs/performance issues from the current setup:
-    - Fix error handling and logging, allowing users to see exactly what is going on, and tracing exceptions/callbacks when state changes
-    - Allow each service to be added to the channel pipeline
-    - Make the gui more user friendly, and decouple all of the tunnel classes from gathering input
+    - Allow multiple services to be added to the channel pipeline
+    - Make the gui more user friendly
     - Make CLI using charva
 - Establish encrypted connection with public server, authenticate aliases
 - Ask the user to forward ports if udp hole punching doesn't work, and possibly allow using a relay server

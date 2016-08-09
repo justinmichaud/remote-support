@@ -23,7 +23,6 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Date;
-import java.util.function.Function;
 
 public class NioTestTlsManager {
 
@@ -31,15 +30,14 @@ public class NioTestTlsManager {
     private final static char[] keystorePassword = "1".toCharArray();
 
     public static SSLContext getSSLContext(String partnerName, File privateKeystoreFile,
-                                           File trustedKeystoreFile, Function<String, String> prompter)
+                                           File trustedKeystoreFile, NioTestTunnelEventHandler eh)
             throws GeneralSecurityException, IOException, OperatorCreationException {
         if (Security.getProvider("BC") == null)
             Security.addProvider(new BouncyCastleProvider());
 
         KeyStore privateKey = loadOrCreatePrivateKeypair(privateKeystoreFile);
+        trustStart(eh, privateKey);
         KeyStore trustedKeys = loadOrCreateTrustStore(trustedKeystoreFile);
-        TrustQuestionProvider qp = new TrustQuestionProvider(prompter, privateKey, trustedKeys,
-                partnerName, trustedKeystoreFile);
 
         KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
         keyManagerFactory.init(privateKey, keystorePassword);
@@ -47,12 +45,14 @@ public class NioTestTlsManager {
         TrustManager tm = new X509TrustManager() {
             public void checkClientTrusted(X509Certificate[] chain, String authType)
                     throws CertificateException {
-                checkCertificateTrusted(chain, authType, qp);
+                checkCertificateTrusted(chain, trustedKeys,
+                        partnerName, trustedKeystoreFile, eh);
             }
 
             public void checkServerTrusted(X509Certificate[] chain, String authType)
                     throws CertificateException {
-                checkCertificateTrusted(chain, authType, qp);
+                checkCertificateTrusted(chain, trustedKeys,
+                        partnerName, trustedKeystoreFile, eh);
             }
 
             public X509Certificate[] getAcceptedIssuers() {
@@ -176,70 +176,38 @@ public class NioTestTlsManager {
         }
     }
 
-    private static class TrustQuestionProvider {
-        private final Function<String, String> prompter;
-        private final KeyStore trustedKeys;
-        private final String partnerAlias;
-        private final File trustedKeystoreFile;
-
-        public TrustQuestionProvider(Function<String, String> prompter, KeyStore privateKey, KeyStore trustedKeys,
-                                     String partnerAlias, File trustedKeystoreFile) throws KeyStoreException, CertificateEncodingException, NoSuchAlgorithmException {
-            this.prompter = prompter;
-            this.trustedKeys = trustedKeys;
-            this.partnerAlias = partnerAlias;
-            this.trustedKeystoreFile = trustedKeystoreFile;
-
-            System.out.println(getCertificateFingerprint((X509Certificate) privateKey.getCertificate("cert")));
-        }
-
-        public void checkCertificate(X509Certificate untrusted) throws CertificateException {
-            try {
-                java.security.cert.Certificate storedCert = trustedKeys.getCertificate(partnerAlias);
-
-                if (storedCert == null) {
-                    if (!trustNew(untrusted)) throw new CertificateException("Certificate rejected");
-                }
-                else if (!storedCert.equals(untrusted)) {
-                    if (!trustDifferent(untrusted)) throw new CertificateException("Certificate rejected");
-                }
-            } catch (KeyStoreException e) {
-                e.printStackTrace();
-                throw new CertificateException("KeystoreException");
-            } catch (Exception e) {
-                e.printStackTrace();
-                throw new CertificateException("Internal error");
-            }
-        }
-
-        public boolean trustNew(X509Certificate partnerCert) throws Exception {
-            if (prompter.apply("This is the first time connecting to this computer. Does this fingerprint ("
-                    + getCertificateFingerprint(partnerCert)
-                    + ") match the one on the other computer?").equalsIgnoreCase("y")) {
-                addTrustedCertificate(partnerCert, trustedKeys, partnerAlias, trustedKeystoreFile);
-                return true;
-            }
-            return false;
-        }
-
-        public boolean trustDifferent(X509Certificate partnerCert) throws Exception {
-            if (prompter.apply("This computer has a different identity since the last time it connected." +
-                    "This could be an attempt to hijack your computer." +
-                    "Does this fingerprint (" + getCertificateFingerprint(partnerCert) +
-                    ") match the one on the other computer?").equalsIgnoreCase("y")) {
-                addTrustedCertificate(partnerCert, trustedKeys, partnerAlias, trustedKeystoreFile);
-                return true;
-            }
-            return false;
-        }
-    }
-
-    private static void checkCertificateTrusted(X509Certificate[] chain, String authType, TrustQuestionProvider qp)
-            throws CertificateException {
+    private static void checkCertificateTrusted(X509Certificate[] chain, KeyStore trustedKeys,
+                                                String partnerName, File trustedKeystoreFile,
+                                                NioTestTunnelEventHandler eh) throws CertificateException {
         if (chain == null || chain.length != 1)
             throw new CertificateException("Chain Length Not Correct");
 
-        X509Certificate partnerCert = chain[0];
-        qp.checkCertificate(partnerCert);
+        X509Certificate untrusted = chain[0];
+        try {
+            java.security.cert.Certificate storedCert = trustedKeys.getCertificate(partnerName);
+
+            if (storedCert == null) {
+                if (!eh.trustNew(untrusted, getCertificateFingerprint(untrusted)))
+                    throw new CertificateException("Certificate rejected");
+                addTrustedCertificate(untrusted, trustedKeys, partnerName, trustedKeystoreFile);
+            }
+            else if (!storedCert.equals(untrusted)) {
+                if (!eh.trustDifferent(untrusted, getCertificateFingerprint(untrusted)))
+                    throw new CertificateException("Certificate rejected");
+                addTrustedCertificate(untrusted, trustedKeys, partnerName, trustedKeystoreFile);
+            }
+        } catch (KeyStoreException e) {
+            e.printStackTrace();
+            throw new CertificateException("KeystoreException");
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new CertificateException("Internal error");
+        }
     }
 
+    private static void trustStart(NioTestTunnelEventHandler eh, KeyStore privateKey)
+            throws KeyStoreException, CertificateEncodingException, NoSuchAlgorithmException {
+        X509Certificate cert = (X509Certificate) privateKey.getCertificate("cert");
+        eh.trustStart(cert, getCertificateFingerprint(cert));
+    }
 }
