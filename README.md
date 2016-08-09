@@ -19,7 +19,6 @@ This project uses Barchart UDT to provide reliable UDP data transfer, and Bouncy
 # Left to implement
 
 - Replace threaded portions with nio + netty to get around the limitations/bugs/performance issues from the current setup:
-    - Fix bug where ssh can't be forwarded since it writes data too soon
     - Fix error handling and logging, allowing users to see exactly what is going on, and tracing exceptions/callbacks when state changes
     - Allow each service to be added to the channel pipeline
     - Make the gui more user friendly, and decouple all of the tunnel classes from gathering input

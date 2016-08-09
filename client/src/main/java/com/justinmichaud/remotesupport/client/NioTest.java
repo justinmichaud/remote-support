@@ -12,6 +12,7 @@ import io.netty.channel.udt.UdtChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.util.concurrent.DefaultThreadFactory;
+import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import org.bouncycastle.operator.OperatorCreationException;
 
@@ -21,6 +22,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
 import java.util.Scanner;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
 
 /*
@@ -50,18 +52,26 @@ public class NioTest {
 
             ChannelFuture f = b.connect("localhost", 22);
             tunnel = f.channel();
-            f.addListener(new GenericFutureListener<ChannelFuture>() {
-                @Override
-                public void operationComplete(ChannelFuture future) throws Exception {
-                    if (future.isSuccess()) {
-                        System.out.println("Connected to tunnel");
-                        peer.read();
-                    } else {
-                        System.out.println("Error connecting to tunnel");
-                        peer.close();
-                    }
+            f.addListener(future -> {
+                if (future.isSuccess()) {
+                    System.out.println("Connected to tunnel");
+                    peer.read();
+                } else {
+                    System.out.println("Error connecting to tunnel");
+                    peer.close();
                 }
             });
+
+            // Wait until we are connected to the tunnel
+            // This handler must be on a separate thread group, otherwise it will block the event thread
+            while (tunnel == null && !peer.eventLoop().isShuttingDown()) {
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    System.out.println("Interrupted waiting for tunnel");
+                    peer.close();
+                }
+            }
         }
 
         @Override
@@ -75,6 +85,7 @@ public class NioTest {
             Channel peer = ctx.channel();
 
             if (tunnel == null || !tunnel.isActive()) {
+                System.out.println("Attempted to read from a tunnel that is closed");
                 closeOnFlush(peer);
                 return;
             }
@@ -125,16 +136,16 @@ public class NioTest {
                @Override
                protected void initChannel(SocketChannel ch) throws Exception {
                    if (tunnel != null) throw new IOException("The tunnel is already connected.");
+                   System.out.println("Accepted connection to tunnel");
                    tunnel = ch;
                    ch.pipeline().addLast(new TcpForwardTunnelHandler(peer));
-                   System.out.println("Accepted connection to tunnel");
+                   peer.read();
                }
             });
 
             b.bind(4999).addListener(future -> {
                 if (future.isSuccess()) {
                     System.out.println("Listening for connection to tunnel");
-                    peer.read();
                 }
                 else {
                     System.out.println("Error listening for connection to tunnel");
@@ -142,6 +153,17 @@ public class NioTest {
                     peer.close();
                 }
             });
+
+            // Wait until we are connected to the tunnel
+            // This handler must be on a separate thread group, otherwise it will block the event thread
+            while (tunnel == null && !peer.eventLoop().isShuttingDown()) {
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    System.out.println("Interrupted waiting for tunnel");
+                    peer.close();
+                }
+            }
         }
 
         @Override
@@ -155,6 +177,7 @@ public class NioTest {
             Channel peer = ctx.channel();
 
             if (tunnel == null || !tunnel.isActive()) {
+                System.out.println("Attempted to read from a tunnel that is closed");
                 closeOnFlush(peer);
                 return;
             }
@@ -198,6 +221,7 @@ public class NioTest {
 
         @Override
         public void channelInactive(ChannelHandlerContext ctx) {
+            System.out.println("Connection to tunnel closed");
             if (peer != null) closeOnFlush(peer);
         }
 
@@ -206,6 +230,7 @@ public class NioTest {
             Channel tunnel = ctx.channel();
 
             if (peer == null || !peer.isActive()) {
+                System.out.println("Attempted to read from a peer that is closed");
                 closeOnFlush(tunnel);
                 return;
             }
@@ -241,6 +266,7 @@ public class NioTest {
 
         final ThreadFactory connectFactory = new DefaultThreadFactory("rendezvous");
         final EventLoopGroup rendezvousGroup = new NioEventLoopGroup(1, connectFactory, NioUdtProvider.MESSAGE_PROVIDER);
+        final EventLoopGroup peerGroup = new NioEventLoopGroup();
         final EventLoopGroup tunnelGroup = new NioEventLoopGroup();
         try {
             Bootstrap b = new Bootstrap();
@@ -253,18 +279,23 @@ public class NioTest {
                     ChannelPipeline pipeline = ch.pipeline();
 
                     SslHandler sslHandler = new SslHandler(engine);
+                    Future<Channel> handshakeFuture = sslHandler.handshakeFuture();
                     pipeline.addLast(sslHandler);
 
-                    sslHandler.handshakeFuture().addListener(future -> {
-                        if (!future.isSuccess()) {
-                            System.out.println("Error during ssl handshake");
+                    handshakeFuture.addListener(future -> {
+                        if (future.isSuccess()) {
+                            System.out.println("SSL Handshake complete");
+
+                            if (server) pipeline.addLast(peerGroup, new TcpForwardPeerHandlerAcceptor(tunnelGroup));
+                            else pipeline.addLast(peerGroup, new TcpForwardPeerHandlerConnector(tunnelGroup));
+
+                            pipeline.fireChannelActive();
+                        }
+                        else {
+                            System.out.println("Error during SSL handshake");
                             future.cause().printStackTrace();
                             ch.close();
-                            return;
                         }
-                        if (server) pipeline.addLast(new TcpForwardPeerHandlerAcceptor(tunnelGroup));
-                        else pipeline.addLast(new TcpForwardPeerHandlerConnector(tunnelGroup));
-                        pipeline.fireChannelActive();
                     });
                 }
             });
@@ -272,19 +303,19 @@ public class NioTest {
             ChannelFuture f = b.connect(peer, us).sync();
             System.out.println("Connected to peer - Authenticating");
 
+            //Shut down gracefully when user presses ctrl+c
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 try {
                     f.channel().close().sync();
-                } catch (InterruptedException e) {}
+                } catch (InterruptedException|RejectedExecutionException e) {}
             }));
 
-            while (!f.channel().closeFuture().isDone()) {
-                Thread.sleep(100);
-            }
+            f.channel().closeFuture().sync();
 
             System.out.println("Done.");
         } finally {
             rendezvousGroup.shutdownGracefully();
+            peerGroup.shutdownGracefully();
             tunnelGroup.shutdownGracefully();
         }
 
