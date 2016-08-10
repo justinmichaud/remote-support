@@ -23,7 +23,7 @@ public class PortForwardClientService extends Service {
         protected void establishTunnel(Channel peer) {
             ServerBootstrap b = new ServerBootstrap();
             b.option(ChannelOption.SO_REUSEADDR, true);
-            b.group(makeEventLoopGroup());
+            b.group(makeEventLoopGroup(), makeEventLoopGroup());
             b.channel(NioServerSocketChannel.class);
             b.childHandler(new ChannelInitializer<SocketChannel>() {
                 @Override
@@ -33,6 +33,7 @@ public class PortForwardClientService extends Service {
                             + ": Accepted connection to tunnel");
                     tunnel = ch;
                     ch.pipeline().addLast(new PortForwardServiceTunnelHandler(peer, service));
+                    onTunnelEstablished();
                     peer.read();
                 }
             });

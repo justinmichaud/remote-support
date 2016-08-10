@@ -2,11 +2,17 @@ package com.justinmichaud.remotesupport.client.services;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelOption;
 
 abstract class PortForwardServiceHandler extends ServiceHandler {
 
     protected volatile Channel tunnel;
+
+    private ByteBuf backlogBeforeTunnelEstablished;
+    private boolean tunnelEstablished = false;
 
     public PortForwardServiceHandler(Service service) {
         super(service);
@@ -14,28 +20,26 @@ abstract class PortForwardServiceHandler extends ServiceHandler {
 
     protected abstract void establishTunnel(Channel peer);
 
+    protected void onTunnelEstablished() {
+        tunnelEstablished = true;
+        backlogBeforeTunnelEstablished.retain();
+        tunnel.writeAndFlush(backlogBeforeTunnelEstablished);
+    }
+
     @Override
     public void onChannelActive(ChannelHandlerContext ctx) {
         Channel peer = ctx.channel();
         peer.config().setOption(ChannelOption.AUTO_READ, false);
 
+        backlogBeforeTunnelEstablished = Unpooled.buffer();
+        backlogBeforeTunnelEstablished.retain();
         establishTunnel(ctx.channel());
-
-        // Wait until we are connected to the tunnel
-        // This handler must be on a separate thread logicGroup, otherwise it will block the event thread
-        while (tunnel == null && !peer.eventLoop().isShuttingDown()) {
-            try {
-                Thread.sleep(10);
-            } catch (InterruptedException e) {
-                service.debug("Interrupted waiting for tunnel");
-                peer.close();
-            }
-        }
     }
 
     @Override
     public void onChannelInactive(ChannelHandlerContext ctx) {
         if (tunnel != null) closeOnFlush(tunnel);
+        backlogBeforeTunnelEstablished.release();
     }
 
     @Override
@@ -45,6 +49,11 @@ abstract class PortForwardServiceHandler extends ServiceHandler {
         ServiceHeader serviceHeader = (ServiceHeader) msg;
         if (serviceHeader.id != service.id) {
             ctx.fireChannelRead(serviceHeader);
+            return;
+        }
+
+        if (!tunnelEstablished) {
+            backlogBeforeTunnelEstablished.writeBytes(serviceHeader.buf);
             return;
         }
 

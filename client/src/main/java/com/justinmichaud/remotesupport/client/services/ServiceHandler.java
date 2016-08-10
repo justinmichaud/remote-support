@@ -1,7 +1,10 @@
 package com.justinmichaud.remotesupport.client.services;
 
 import io.netty.buffer.Unpooled;
-import io.netty.channel.*;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
 
 public abstract class ServiceHandler extends ChannelInboundHandlerAdapter {
 

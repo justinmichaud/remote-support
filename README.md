@@ -19,9 +19,10 @@ This project uses Barchart UDT to provide reliable UDP data transfer, and Bouncy
 # Left to implement
 
 - Replace threaded portions with nio + netty to get around the limitations/bugs/performance issues from the current setup:
-    - Fix service not closing when waiting to accept connection
-    - Fix backlog of messages before connection is accepted causing permanent bottleneck (buffer?) + remove separate event loop
-    - Create control handler to chunk data for each service, add/remove remote services
+    - Fix service not closing when app is killed waiting to accept connection
+    - Fix bug where data is not sent until second handler accepts connection after there is data sent into the buffer
+    - Fix application not closing completely when an exception is thrown
+    - Create control handler to tell remote to add/remove services
     - Replace existing tunnel code in ui
 - Make the gui more user friendly
 - Establish encrypted connection with public server, authenticate aliases

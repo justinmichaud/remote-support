@@ -12,7 +12,6 @@ public abstract class Service {
     private ChannelPipeline pipeline;
 
     private final ServiceManager serviceManager;
-    protected final EventLoopGroup serviceGroup;
     protected final ArrayList<EventLoopGroup> logicGroups = new ArrayList<>();
 
     protected ServiceHandler handler;
@@ -26,7 +25,6 @@ public abstract class Service {
         this.name = name;
         this.id = id;
         this.serviceManager = serviceManager;
-        serviceGroup = new NioEventLoopGroup(1);
     }
 
     protected void setHandler(ServiceHandler handler) {
@@ -39,18 +37,16 @@ public abstract class Service {
         serviceManager.eh.serviceOpen(this);
 
         this.pipeline = pipeline;
-        pipeline.addLast(serviceGroup, handler);
-        serviceGroup.schedule(() -> handler.channelActive(pipeline.context(handler)), 0, TimeUnit.SECONDS);
+        pipeline.addLast(handler);
+        handler.channelActive(pipeline.context(handler));
     }
 
     public void removeFromPipeline() {
         if (handler == null) throw new IllegalStateException("Must set handler");
 
         debug("Removing service from pipeline");
-        serviceGroup.schedule(() -> {
-            handler.channelInactive(pipeline.context(handler));
-            pipeline.remove(handler);
-        }, 0, TimeUnit.SECONDS);
+        handler.channelInactive(pipeline.context(handler));
+        pipeline.remove(handler);
 
         serviceManager.services.remove(this);
         serviceManager.eh.serviceClosed(this);
@@ -68,7 +64,6 @@ public abstract class Service {
 
     public void onHandlerInactive() {
         debug("On Service handler inactive");
-        serviceGroup.shutdownGracefully();
         logicGroups.forEach(EventLoopGroup::shutdownGracefully);
     }
 
