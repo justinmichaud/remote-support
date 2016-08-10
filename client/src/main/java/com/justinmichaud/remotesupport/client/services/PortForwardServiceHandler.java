@@ -49,9 +49,7 @@ abstract class PortForwardServiceHandler extends ServiceHandler {
         }
 
         if (tunnel == null || !tunnel.isActive()) {
-            service.debug("Attempted to read from a tunnel that is closed");
-            closeOnFlush(peer);
-            return;
+            throw new IllegalStateException("Attempted to read from a tunnel that is closed");
         }
 
         tunnel.writeAndFlush(serviceHeader.buf).addListener(future -> {
@@ -66,7 +64,7 @@ abstract class PortForwardServiceHandler extends ServiceHandler {
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         service.error("Peer connection error", cause);
-        closeOnFlush(ctx.channel());
+        service.removeFromPipeline();
     }
 
     public static void closeOnFlush(Channel ch) {

@@ -30,7 +30,7 @@ public class PortForwardServerService extends Service {
                     peer.read();
                 } else {
                     error("Error connecting to tunnel", future.cause());
-                    peer.close();
+                    service.removeFromPipeline();
                 }
             });
         }

@@ -39,12 +39,10 @@ public class PortForwardClientService extends Service {
 
             b.bind(port).addListener(future -> {
                 if (future.isSuccess()) {
-                    log("Service " + service.name + ":" + service.id
-                            + ": Listening for connection to tunnel");
+                    log("Listening for connection to tunnel");
                 } else {
-                    error("Service " + service.name + ":" + service.id
-                            + ": Error listening for connection to tunnel", future.cause());
-                    peer.close();
+                    error("Error listening for connection to tunnel", future.cause());
+                    service.removeFromPipeline();
                 }
             });
         }

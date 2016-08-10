@@ -74,11 +74,13 @@ public class NioPeerConnection {
                             //Services
                             if (server) serviceManager.addService(new PortForwardServerService(1, serviceManager, 22));
                             else serviceManager.addService(new PortForwardClientService(1, serviceManager, 4999));
+                            if (server) serviceManager.addService(new PortForwardServerService(2, serviceManager, 5002));
+                            else serviceManager.addService(new PortForwardClientService(2, serviceManager, 5001));
 
                             pipeline.addLast(new ChannelInboundHandlerAdapter() {
                                @Override
                                 public void channelRead(ChannelHandlerContext ctx, Object msg) {
-                                   System.out.println("Message with id " + ((ServiceHeader) msg).id + " was not handled.");
+                                   System.out.println("ERROR: Message with id " + ((ServiceHeader) msg).id + " was not handled.");
                                }
                             });
                         }
