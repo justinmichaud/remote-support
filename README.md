@@ -19,8 +19,6 @@ This project uses Barchart UDT to provide reliable UDP data transfer, and Bouncy
 # Left to implement
 
 - Replace threaded portions with nio + netty to get around the limitations/bugs/performance issues from the current setup:
-    - Fix hanging when waiting for a tunnel connection
-    - Separate service logs
     - Create control handler to chunk data for each service, add/remove remote services
     - Replace existing tunnel code in ui
 - Make the gui more user friendly

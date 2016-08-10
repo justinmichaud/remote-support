@@ -26,7 +26,7 @@ abstract class PortForwardServiceHandler extends ServiceHandler {
             try {
                 Thread.sleep(10);
             } catch (InterruptedException e) {
-                debug("Interrupted waiting for tunnel");
+                service.debug("Interrupted waiting for tunnel");
                 peer.close();
             }
         }
@@ -42,7 +42,7 @@ abstract class PortForwardServiceHandler extends ServiceHandler {
         Channel peer = ctx.channel();
 
         if (tunnel == null || !tunnel.isActive()) {
-            debug("Attempted to read from a tunnel that is closed");
+            service.debug("Attempted to read from a tunnel that is closed");
             closeOnFlush(peer);
             return;
         }
@@ -50,7 +50,7 @@ abstract class PortForwardServiceHandler extends ServiceHandler {
         tunnel.writeAndFlush(msg).addListener(future -> {
             if (future.isSuccess()) peer.read();
             else {
-                debugError("Error reading from peer", future.cause());
+                service.debugError("Error reading from peer", future.cause());
                 peer.close();
             }
         });
@@ -58,7 +58,7 @@ abstract class PortForwardServiceHandler extends ServiceHandler {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        error("Peer connection error", cause);
+        service.error("Peer connection error", cause);
         closeOnFlush(ctx.channel());
     }
 

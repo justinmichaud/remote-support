@@ -21,8 +21,7 @@ class PortForwardServiceTunnelHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
-        service.serviceManager.eh.debug("Service " + service.name + ":" + service.id
-                + ": Connection to tunnel closed");
+        service.debug("Connection to tunnel closed");
         service.removeFromPipeline();
     }
 
@@ -31,8 +30,7 @@ class PortForwardServiceTunnelHandler extends ChannelInboundHandlerAdapter {
         Channel tunnel = ctx.channel();
 
         if (peer == null || !peer.isActive()) {
-            service.serviceManager.eh.debug("Service " + service.name + ":" + service.id
-                    + ": Attempted to read from a peer that is closed");
+            service.debug("Attempted to read from a peer that is closed");
             closeOnFlush(tunnel);
             return;
         }
@@ -40,8 +38,7 @@ class PortForwardServiceTunnelHandler extends ChannelInboundHandlerAdapter {
         peer.writeAndFlush(msg).addListener(future -> {
             if (future.isSuccess()) tunnel.read();
             else {
-                service.serviceManager.eh.debugError("Service " + service.name + ":" + service.id
-                        + ": Error reading from tunnel", future.cause());
+                service.debugError("Error reading from tunnel", future.cause());
                 tunnel.close();
             }
         });
@@ -49,8 +46,7 @@ class PortForwardServiceTunnelHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        service.serviceManager.eh.debugError("Service " + service.name + ":" + service.id
-                + ": Tunnel error", cause);
+        service.debugError("Tunnel error", cause);
         closeOnFlush(ctx.channel());
     }
 

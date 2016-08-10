@@ -7,6 +7,8 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 
 public class PortForwardServerService extends Service {
 
+    public final int port;
+
     public class Connector extends PortForwardServiceHandler {
 
         public Connector() {
@@ -20,7 +22,7 @@ public class PortForwardServerService extends Service {
             b.channel(NioSocketChannel.class);
             b.handler(new PortForwardServiceTunnelHandler(peer, service));
 
-            ChannelFuture f = b.connect("localhost", 22);
+            ChannelFuture f = b.connect("localhost", port);
             tunnel = f.channel();
             f.addListener(future -> {
                 if (future.isSuccess()) {
@@ -34,8 +36,9 @@ public class PortForwardServerService extends Service {
         }
     }
 
-    public PortForwardServerService(int id, ServiceManager serviceManager) {
+    public PortForwardServerService(int id, ServiceManager serviceManager, int port) {
         super("PortForwardServerService", id, serviceManager);
+        this.port = port;
         setHandler(new Connector());
     }
 

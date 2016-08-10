@@ -11,7 +11,7 @@ public abstract class Service {
 
     private ChannelPipeline pipeline;
 
-    protected final ServiceManager serviceManager;
+    private final ServiceManager serviceManager;
     protected final EventLoopGroup serviceGroup;
     protected final ArrayList<EventLoopGroup> logicGroups = new ArrayList<>();
 
@@ -46,7 +46,7 @@ public abstract class Service {
     public void removeFromPipeline() {
         if (handler == null) throw new IllegalStateException("Must set handler");
 
-        System.out.println("Service " + name + ":" + id + ": Removing from pipeline");
+        debug("Removing service from pipeline");
         serviceGroup.schedule(() -> {
             handler.channelInactive(pipeline.context(handler));
             pipeline.remove(handler);
@@ -63,12 +63,33 @@ public abstract class Service {
     }
 
     public void onHandlerActive() {
-        serviceManager.eh.debug("Service handler active: " + name + ":" + id);
+        debug("On Service handler active");
     }
 
     public void onHandlerInactive() {
-        serviceManager.eh.debug("On Service handler inactive: " + name + ":" + id);
+        debug("On Service handler inactive");
         serviceGroup.shutdownGracefully();
         logicGroups.forEach(EventLoopGroup::shutdownGracefully);
+    }
+
+    public void error(String msg, Throwable cause) {
+        serviceManager.eh.error(this + ":" + msg, cause);
+    }
+
+    public void debugError(String msg, Throwable cause) {
+        serviceManager.eh.debugError(this +  msg, cause);
+    }
+
+    public void log(String msg) {
+        serviceManager.eh.log(this + ":" + msg);
+    }
+
+    public void debug(String msg) {
+        serviceManager.eh.debug(this + ":" + msg);
+    }
+
+    @Override
+    public String toString() {
+        return name + ":" + id;
     }
 }

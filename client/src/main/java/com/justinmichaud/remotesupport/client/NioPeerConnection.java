@@ -61,8 +61,8 @@ public class NioPeerConnection {
 
                             final ServiceManager serviceManager = new ServiceManager(eh, pipeline);
 
-                            if (server) serviceManager.addService(new PortForwardServerService(1, serviceManager));
-                            else serviceManager.addService(new PortForwardClientService(1, serviceManager));
+                            if (server) serviceManager.addService(new PortForwardServerService(1, serviceManager, 22));
+                            else serviceManager.addService(new PortForwardClientService(1, serviceManager, 4999));
                         }
                         else {
                             eh.error("Error during SSL handshake", future.cause());
