@@ -65,7 +65,11 @@ public class TunnelEventHandler {
         }));
     }
 
+    public void serviceOpen(Service service) {
+        System.out.println("Event Handler: Service " + service.name + ":" + service.id + " open.");
+    }
+
     public void serviceClosed(Service service) {
-        System.out.println("Service " + service.name + ":" + service.id + " closed.");
+        System.out.println("Event Handler: Service " + service.name + ":" + service.id + " closed.");
     }
 }

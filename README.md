@@ -19,12 +19,12 @@ This project uses Barchart UDT to provide reliable UDP data transfer, and Bouncy
 # Left to implement
 
 - Replace threaded portions with nio + netty to get around the limitations/bugs/performance issues from the current setup:
-    - Fix service manager closing
+    - Fix hanging when waiting for a tunnel connection
     - Separate service logs
-    - Allow multiple ports to be forwarded
+    - Create control handler to chunk data for each service, add/remove remote services
     - Replace existing tunnel code in ui
 - Make the gui more user friendly
-- Make CLI using charva
 - Establish encrypted connection with public server, authenticate aliases
 - Ask the user to forward ports if udp hole punching doesn't work, and possibly allow using a relay server
+- Make CLI using charva
 - Launch vnc and ssh server remotely

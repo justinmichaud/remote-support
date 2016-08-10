@@ -23,6 +23,7 @@ class PortForwardServiceTunnelHandler extends ChannelInboundHandlerAdapter {
     public void channelInactive(ChannelHandlerContext ctx) {
         service.serviceManager.eh.debug("Service " + service.name + ":" + service.id
                 + ": Connection to tunnel closed");
+        service.removeFromPipeline();
     }
 
     @Override
@@ -51,7 +52,6 @@ class PortForwardServiceTunnelHandler extends ChannelInboundHandlerAdapter {
         service.serviceManager.eh.debugError("Service " + service.name + ":" + service.id
                 + ": Tunnel error", cause);
         closeOnFlush(ctx.channel());
-        service.removeFromPipeline();
     }
 
     public static void closeOnFlush(Channel ch) {

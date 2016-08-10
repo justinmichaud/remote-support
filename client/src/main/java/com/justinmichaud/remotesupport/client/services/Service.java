@@ -5,6 +5,7 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 
 import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
 
 public abstract class Service {
 
@@ -20,10 +21,12 @@ public abstract class Service {
     public final int id;
 
     public Service(String name, int id, ServiceManager serviceManager) {
+        if (id <=0 || id >255) throw new IllegalArgumentException("Invalid Service ID");
+
         this.name = name;
         this.id = id;
         this.serviceManager = serviceManager;
-        serviceGroup = new NioEventLoopGroup();
+        serviceGroup = new NioEventLoopGroup(1);
     }
 
     protected void setHandler(ServiceHandler handler) {
@@ -31,13 +34,26 @@ public abstract class Service {
     }
 
     public void addToPipeline(ChannelPipeline pipeline) {
+        if (handler == null) throw new IllegalStateException("Must set handler");
+
+        serviceManager.eh.serviceOpen(this);
+
         this.pipeline = pipeline;
         pipeline.addLast(serviceGroup, handler);
-        pipeline.fireChannelActive();
+        serviceGroup.schedule(() -> handler.channelActive(pipeline.context(handler)), 0, TimeUnit.SECONDS);
     }
 
     public void removeFromPipeline() {
-        pipeline.remove(handler);
+        if (handler == null) throw new IllegalStateException("Must set handler");
+
+        System.out.println("Service " + name + ":" + id + ": Removing from pipeline");
+        serviceGroup.schedule(() -> {
+            handler.channelInactive(pipeline.context(handler));
+            pipeline.remove(handler);
+        }, 0, TimeUnit.SECONDS);
+
+        serviceManager.services.remove(this);
+        serviceManager.eh.serviceClosed(this);
     }
 
     EventLoopGroup makeEventLoopGroup() {
@@ -51,9 +67,8 @@ public abstract class Service {
     }
 
     public void onHandlerInactive() {
-        serviceManager.eh.debug("Service handler inactive: " + name + ":" + id);
+        serviceManager.eh.debug("On Service handler inactive: " + name + ":" + id);
         serviceGroup.shutdownGracefully();
         logicGroups.forEach(EventLoopGroup::shutdownGracefully);
-        serviceManager.removeService(this);
     }
 }
