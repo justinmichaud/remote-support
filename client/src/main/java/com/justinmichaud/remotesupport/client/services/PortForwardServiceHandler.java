@@ -1,5 +1,6 @@
 package com.justinmichaud.remotesupport.client.services;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 
@@ -41,13 +42,19 @@ abstract class PortForwardServiceHandler extends ServiceHandler {
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         Channel peer = ctx.channel();
 
+        ServiceHeader serviceHeader = (ServiceHeader) msg;
+        if (serviceHeader.id != service.id) {
+            ctx.fireChannelRead(serviceHeader);
+            return;
+        }
+
         if (tunnel == null || !tunnel.isActive()) {
             service.debug("Attempted to read from a tunnel that is closed");
             closeOnFlush(peer);
             return;
         }
 
-        tunnel.writeAndFlush(msg).addListener(future -> {
+        tunnel.writeAndFlush(serviceHeader.buf).addListener(future -> {
             if (future.isSuccess()) peer.read();
             else {
                 service.debugError("Error reading from peer", future.cause());

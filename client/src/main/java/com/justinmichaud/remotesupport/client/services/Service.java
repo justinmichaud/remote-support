@@ -73,19 +73,19 @@ public abstract class Service {
     }
 
     public void error(String msg, Throwable cause) {
-        serviceManager.eh.error(this + ":" + msg, cause);
+        serviceManager.eh.error(this + ": " + msg, cause);
     }
 
     public void debugError(String msg, Throwable cause) {
-        serviceManager.eh.debugError(this +  msg, cause);
+        serviceManager.eh.debugError(this + ": " + msg, cause);
     }
 
     public void log(String msg) {
-        serviceManager.eh.log(this + ":" + msg);
+        serviceManager.eh.log(this + ": " + msg);
     }
 
     public void debug(String msg) {
-        serviceManager.eh.debug(this + ":" + msg);
+        serviceManager.eh.debug(this + ": " + msg);
     }
 
     @Override

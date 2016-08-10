@@ -6,6 +6,8 @@ import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.udt.UdtChannel;
 import io.netty.channel.udt.nio.NioUdtProvider;
+import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
+import io.netty.handler.codec.LengthFieldPrepender;
 import io.netty.handler.ssl.SslHandler;
 import io.netty.util.concurrent.DefaultThreadFactory;
 import io.netty.util.concurrent.Future;
@@ -61,8 +63,24 @@ public class NioPeerConnection {
 
                             final ServiceManager serviceManager = new ServiceManager(eh, pipeline);
 
+                            //Inbound
+                            pipeline.addLast(new LengthFieldBasedFrameDecoder(65535, 0, 2, 0, 2));
+                            pipeline.addLast(new ServiceHeaderDecoder());
+
+                            //Outbound
+                            pipeline.addLast(new LengthFieldPrepender(2));
+                            pipeline.addLast(new ServiceHeaderEncoder());
+
+                            //Services
                             if (server) serviceManager.addService(new PortForwardServerService(1, serviceManager, 22));
                             else serviceManager.addService(new PortForwardClientService(1, serviceManager, 4999));
+
+                            pipeline.addLast(new ChannelInboundHandlerAdapter() {
+                               @Override
+                                public void channelRead(ChannelHandlerContext ctx, Object msg) {
+                                   System.out.println("Message with id " + ((ServiceHeader) msg).id + " was not handled.");
+                               }
+                            });
                         }
                         else {
                             eh.error("Error during SSL handshake", future.cause());

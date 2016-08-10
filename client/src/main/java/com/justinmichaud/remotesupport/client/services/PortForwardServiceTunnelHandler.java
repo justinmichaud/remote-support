@@ -1,5 +1,6 @@
 package com.justinmichaud.remotesupport.client.services;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 
@@ -35,7 +36,11 @@ class PortForwardServiceTunnelHandler extends ChannelInboundHandlerAdapter {
             return;
         }
 
-        peer.writeAndFlush(msg).addListener(future -> {
+        ServiceHeader serviceHeader = new ServiceHeader();
+        serviceHeader.id = service.id;
+        serviceHeader.buf = (ByteBuf) msg;
+
+        peer.writeAndFlush(serviceHeader).addListener(future -> {
             if (future.isSuccess()) tunnel.read();
             else {
                 service.debugError("Error reading from tunnel", future.cause());
