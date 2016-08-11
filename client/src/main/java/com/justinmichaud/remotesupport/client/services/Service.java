@@ -36,7 +36,7 @@ public abstract class Service {
         serviceManager.eh.serviceOpen(this);
 
         this.pipeline = pipeline;
-        pipeline.addLast(handler);
+        pipeline.addBefore("last", "service:" + id, handler);
         handler.channelActive(pipeline.context(handler));
     }
 
@@ -47,7 +47,9 @@ public abstract class Service {
         handler.channelInactive(pipeline.context(handler));
         pipeline.remove(handler);
 
-        serviceManager.services.remove(this);
+        if (serviceManager.services[id] != this)
+            log("Error: There is a different service with this id!");
+        serviceManager.services[id] = null;
         serviceManager.eh.serviceClosed(this);
     }
 

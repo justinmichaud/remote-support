@@ -59,37 +59,52 @@ public class NioPeerConnection {
                     pipeline.addLast(sslHandler);
 
                     handshakeFuture.addListener(future -> {
-                        if (future.isSuccess()) {
-                            eh.debug("SSL handshake done");
+                        try {
+                            if (future.isSuccess()) {
+                                eh.debug("SSL handshake done");
 
-                            final ServiceManager serviceManager = new ServiceManager(eh, pipeline, workerGroup);
+                                final ServiceManager serviceManager = new ServiceManager(eh, pipeline, workerGroup);
 
-                            //Inbound
-                            pipeline.addLast(new LengthFieldBasedFrameDecoder(65535, 0, 2, 0, 2));
-                            pipeline.addLast(new ServiceHeaderDecoder());
+                                //Inbound
+                                pipeline.addLast(new LengthFieldBasedFrameDecoder(65535, 0, 2, 0, 2));
+                                pipeline.addLast(new ServiceHeaderDecoder());
 
-                            //Outbound
-                            pipeline.addLast(new LengthFieldPrepender(2));
-                            pipeline.addLast(new ServiceHeaderEncoder());
+                                //Outbound
+                                pipeline.addLast(new LengthFieldPrepender(2));
+                                pipeline.addLast(new ServiceHeaderEncoder());
 
-                            //Services
-                            if (server) serviceManager.addService(new PortForwardServerService(1, serviceManager, 22));
-                            else serviceManager.addService(new PortForwardClientService(1, serviceManager, 4999));
-                            if (server) serviceManager.addService(new PortForwardServerService(2, serviceManager, 5002));
-                            else serviceManager.addService(new PortForwardClientService(2, serviceManager, 5001));
+                                //Services are added here
+                                //Catch-all, just in case
+                                pipeline.addLast("last", new ChannelInboundHandlerAdapter() {
+                                    @Override
+                                    public void channelRead(ChannelHandlerContext ctx, Object msg) {
+                                        eh.log("Error: Message with id " + ((ServiceHeader) msg).id + " was not handled.");
+                                    }
 
-                            pipeline.addLast(new ChannelInboundHandlerAdapter() {
-                               @Override
-                                public void channelRead(ChannelHandlerContext ctx, Object msg) {
-                                   System.out.println("ERROR: Message with id " + ((ServiceHeader) msg).id + " was not handled.");
-                               }
-                            });
-                        }
-                        else {
-                            eh.error("Error during SSL handshake", future.cause());
-                            ch.close();
+                                    @Override
+                                    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+                                        eh.error("Uncaught exception processing services", cause);
+                                    }
+                                });
+
+                                //Testing
+                                if (server) serviceManager.addService(new PortForwardServerService(1, serviceManager, 22));
+                                else serviceManager.addService(new PortForwardClientService(1, serviceManager, 4999));
+                                if (server) serviceManager.addService(new PortForwardServerService(2, serviceManager, 5002));
+                                else serviceManager.addService(new PortForwardClientService(2, serviceManager, 5001));
+                            } else {
+                                eh.error("Error during SSL handshake", future.cause());
+                                ch.close();
+                            }
+                        } catch (Exception e) {
+                            eh.error("Uncaught exception initializing peer tunnel services", e);
                         }
                     });
+                }
+
+                @Override
+                public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+                    eh.error("Uncaught exception initializing peer connection", cause);
                 }
             });
 
@@ -97,7 +112,9 @@ public class NioPeerConnection {
             eh.start(f);
             try {
                 f.sync();
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                eh.error("Uncaught error: ", e);
+            }
 
             if (f.isSuccess()) eh.log("Connected to peer - Authenticating");
             else {

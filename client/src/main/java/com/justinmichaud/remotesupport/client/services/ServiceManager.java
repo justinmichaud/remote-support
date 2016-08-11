@@ -7,7 +7,7 @@ import java.util.ArrayList;
 
 public class ServiceManager {
 
-    public final ArrayList<Service> services = new ArrayList<>();
+    public final Service[] services = new Service[256];
     public final TunnelEventHandler eh;
     public final NioEventLoopGroup eventLoopGroup;
     private ChannelPipeline pipeline;
@@ -19,7 +19,11 @@ public class ServiceManager {
     }
 
     public void addService(Service s) {
-        services.add(s);
+        if (services[s.id] != null)
+            throw new IllegalArgumentException("A service with this id already exists");
+        if (s.id <= 0 || s.id > 255)
+            throw new IllegalArgumentException("Invalid service ID");
+        services[s.id] = s;
         s.addToPipeline(pipeline);
     }
 
@@ -29,6 +33,6 @@ public class ServiceManager {
 
     public void close() {
         System.out.println("Service manager closing");
-        services.forEach(this::removeService);
+        for (Service s : services) removeService(s);
     }
 }
