@@ -63,8 +63,6 @@ public class NioPeerConnection {
                             if (future.isSuccess()) {
                                 eh.debug("SSL handshake done");
 
-                                final ServiceManager serviceManager = new ServiceManager(eh, pipeline, workerGroup);
-
                                 //Inbound
                                 pipeline.addLast(new LengthFieldBasedFrameDecoder(65535, 0, 2, 0, 2));
                                 pipeline.addLast(new ServiceHeaderDecoder());
@@ -73,7 +71,9 @@ public class NioPeerConnection {
                                 pipeline.addLast(new LengthFieldPrepender(2));
                                 pipeline.addLast(new ServiceHeaderEncoder());
 
-                                //Services are added here
+                                final ServiceManager serviceManager = new ServiceManager(eh, ch, workerGroup);
+
+                                //Services are added before here by the service manager
                                 //Catch-all, just in case
                                 pipeline.addLast("last", new ChannelInboundHandlerAdapter() {
                                     @Override
@@ -88,10 +88,8 @@ public class NioPeerConnection {
                                 });
 
                                 //Testing
-                                if (server) serviceManager.addService(new PortForwardServerService(1, serviceManager, 22));
-                                else serviceManager.addService(new PortForwardClientService(1, serviceManager, 4999));
-                                if (server) serviceManager.addService(new PortForwardServerService(2, serviceManager, 5002));
-                                else serviceManager.addService(new PortForwardClientService(2, serviceManager, 5001));
+                                if (!server) serviceManager.addService(new PortForwardClientService(1, serviceManager, 4999, 22));
+                                if (!server) serviceManager.addService(new PortForwardClientService(2, serviceManager, 5001, 5002));
                             } else {
                                 eh.error("Error during SSL handshake", future.cause());
                                 ch.close();

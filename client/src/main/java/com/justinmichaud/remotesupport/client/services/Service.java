@@ -50,6 +50,7 @@ public abstract class Service {
         if (serviceManager.services[id] != this)
             log("Error: There is a different service with this id!");
         serviceManager.services[id] = null;
+        serviceManager.peerCloseService(id);
         serviceManager.eh.serviceClosed(this);
     }
 

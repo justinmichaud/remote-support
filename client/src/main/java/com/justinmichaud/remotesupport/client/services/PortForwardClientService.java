@@ -11,7 +11,7 @@ import java.io.IOException;
 
 public class PortForwardClientService extends Service {
 
-    public final int port;
+    public final int localPort, remotePort;
 
     public class Acceptor extends PortForwardServiceHandler {
 
@@ -33,11 +33,12 @@ public class PortForwardClientService extends Service {
                     tunnel = ch;
                     ch.pipeline().addLast(new PortForwardServiceTunnelHandler(peer, service));
                     onTunnelEstablished();
+                    serviceManager.peerOpenPort(id, remotePort);
                     peer.read();
                 }
             });
 
-            b.bind(port).addListener(future -> {
+            b.bind(localPort).addListener(future -> {
                 if (future.isSuccess()) {
                     log("Listening for connection to tunnel");
                 } else {
@@ -48,9 +49,10 @@ public class PortForwardClientService extends Service {
         }
     }
 
-    public PortForwardClientService(int id, ServiceManager serviceManager, int port) {
+    public PortForwardClientService(int id, ServiceManager serviceManager, int localPort, int remotePort) {
         super("PortForwardClientService", id, serviceManager);
-        this.port = port;
+        this.localPort = localPort;
+        this.remotePort = remotePort;
         setHandler(new Acceptor());
     }
 
