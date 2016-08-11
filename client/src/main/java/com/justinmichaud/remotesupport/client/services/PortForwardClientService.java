@@ -29,8 +29,7 @@ public class PortForwardClientService extends Service {
                 @Override
                 protected void initChannel(SocketChannel ch) throws Exception {
                     if (tunnel != null) throw new IOException("The tunnel is already connected.");
-                    log("Service " + service.name + ":" + service.id
-                            + ": Accepted connection to tunnel");
+                    log("Accepted connection to tunnel");
                     tunnel = ch;
                     ch.pipeline().addLast(new PortForwardServiceTunnelHandler(peer, service));
                     onTunnelEstablished();
