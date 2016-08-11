@@ -19,7 +19,7 @@ public class PortForwardServerService extends Service {
         @Override
         protected void establishTunnel(Channel peer) {
             Bootstrap b = new Bootstrap();
-            b.group(makeEventLoopGroup());
+            b.group(service.serviceManager.eventLoopGroup);
             b.channel(NioSocketChannel.class);
             b.handler(new ChannelInitializer<NioSocketChannel>() {
                 @Override

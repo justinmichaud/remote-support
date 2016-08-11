@@ -43,6 +43,7 @@ public class NioPeerConnection {
 
         final ThreadFactory connectFactory = new DefaultThreadFactory("rendezvous");
         final EventLoopGroup rendezvousGroup = new NioEventLoopGroup(1, connectFactory, NioUdtProvider.MESSAGE_PROVIDER);
+        final NioEventLoopGroup workerGroup = new NioEventLoopGroup();
         try {
             Bootstrap b = new Bootstrap();
             b.option(ChannelOption.SO_REUSEADDR, true);
@@ -61,7 +62,7 @@ public class NioPeerConnection {
                         if (future.isSuccess()) {
                             eh.debug("SSL handshake done");
 
-                            final ServiceManager serviceManager = new ServiceManager(eh, pipeline);
+                            final ServiceManager serviceManager = new ServiceManager(eh, pipeline, workerGroup);
 
                             //Inbound
                             pipeline.addLast(new LengthFieldBasedFrameDecoder(65535, 0, 2, 0, 2));
@@ -105,13 +106,16 @@ public class NioPeerConnection {
                 return;
             }
 
-            f.channel().closeFuture().sync();
+            try {
+                f.channel().closeFuture().sync();
+            } catch (InterruptedException e) {
+                eh.error("Interrupted while waiting for connection to close", e);
+            }
 
             eh.debug("Channel closed");
-        } catch (InterruptedException e) {
-            eh.error("Interrupted while waiting for connection to close", e);
         } finally {
             rendezvousGroup.shutdownGracefully().syncUninterruptibly();
+            workerGroup.shutdownGracefully().syncUninterruptibly();
         }
 
         eh.connectionClosed();

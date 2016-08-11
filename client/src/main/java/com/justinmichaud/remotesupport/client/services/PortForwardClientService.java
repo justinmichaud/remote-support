@@ -23,7 +23,7 @@ public class PortForwardClientService extends Service {
         protected void establishTunnel(Channel peer) {
             ServerBootstrap b = new ServerBootstrap();
             b.option(ChannelOption.SO_REUSEADDR, true);
-            b.group(makeEventLoopGroup(), makeEventLoopGroup());
+            b.group(service.serviceManager.eventLoopGroup);
             b.channel(NioServerSocketChannel.class);
             b.childHandler(new ChannelInitializer<SocketChannel>() {
                 @Override

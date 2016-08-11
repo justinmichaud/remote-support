@@ -10,7 +10,7 @@ public abstract class Service {
 
     private ChannelPipeline pipeline;
 
-    private final ServiceManager serviceManager;
+    protected final ServiceManager serviceManager;
     protected final ArrayList<EventLoopGroup> logicGroups = new ArrayList<>();
 
     protected ServiceHandler handler;
@@ -49,12 +49,6 @@ public abstract class Service {
 
         serviceManager.services.remove(this);
         serviceManager.eh.serviceClosed(this);
-    }
-
-    EventLoopGroup makeEventLoopGroup() {
-        EventLoopGroup g = new NioEventLoopGroup();
-        logicGroups.add(g);
-        return g;
     }
 
     public void onHandlerActive() {

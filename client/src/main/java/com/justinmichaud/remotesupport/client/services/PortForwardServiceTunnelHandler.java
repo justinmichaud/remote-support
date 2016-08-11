@@ -15,12 +15,6 @@ class PortForwardServiceTunnelHandler extends ChannelInboundHandlerAdapter {
     }
 
     @Override
-    public void channelActive(ChannelHandlerContext ctx) {
-        ctx.channel().config().setOption(ChannelOption.AUTO_READ, false);
-        ctx.read();
-    }
-
-    @Override
     public void channelInactive(ChannelHandlerContext ctx) {
         service.debug("Connection to tunnel closed");
         service.removeFromPipeline();
@@ -41,8 +35,7 @@ class PortForwardServiceTunnelHandler extends ChannelInboundHandlerAdapter {
         serviceHeader.buf = (ByteBuf) msg;
 
         peer.writeAndFlush(serviceHeader).addListener(future -> {
-            if (future.isSuccess()) tunnel.read();
-            else {
+            if (!future.isSuccess()) {
                 service.debugError("Error reading from tunnel", future.cause());
                 tunnel.close();
             }

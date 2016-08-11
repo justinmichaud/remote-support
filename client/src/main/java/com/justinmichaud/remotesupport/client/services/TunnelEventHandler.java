@@ -51,7 +51,7 @@ public class TunnelEventHandler {
     }
 
     public void connectionClosed() {
-        System.out.println("CONNECTION_CLOSED: Connection closed.");
+        System.out.println("Event Handler: Connection closed.");
     }
 
     public void start(ChannelFuture f) {

@@ -28,9 +28,6 @@ abstract class PortForwardServiceHandler extends ServiceHandler {
 
     @Override
     public void onChannelActive(ChannelHandlerContext ctx) {
-        Channel peer = ctx.channel();
-        peer.config().setOption(ChannelOption.AUTO_READ, false);
-
         backlogBeforeTunnelEstablished = Unpooled.buffer();
         backlogBeforeTunnelEstablished.retain();
         establishTunnel(ctx.channel());
@@ -62,8 +59,7 @@ abstract class PortForwardServiceHandler extends ServiceHandler {
         }
 
         tunnel.writeAndFlush(serviceHeader.buf).addListener(future -> {
-            if (future.isSuccess()) peer.read();
-            else {
+            if (!future.isSuccess()) {
                 service.debugError("Error reading from peer", future.cause());
                 peer.close();
             }
