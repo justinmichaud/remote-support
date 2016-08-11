@@ -57,7 +57,11 @@ public class ControlHandler extends ChannelInboundHandlerAdapter {
                     | (serviceHeader.buf.readByte()&0xFF);
 
             serviceManager.eh.log("Asked by peer to open port " + localPort + " on service " + newService);
-            serviceManager.addService(new PortForwardServerService(newService, serviceManager, localPort));
+            try {
+                serviceManager.addService(new PortForwardServerService(newService, serviceManager, localPort));
+            } catch (IllegalArgumentException e) {
+                serviceManager.eh.error("Could not add service " + newService, e);
+            }
         }
         else if (magic == MAGIC_CLOSE_SERVICE) {
             if (serviceHeader.buf.readableBytes() < 1) {
@@ -66,7 +70,11 @@ public class ControlHandler extends ChannelInboundHandlerAdapter {
             }
             int toClose = serviceHeader.buf.readByte();
             serviceManager.eh.log("Asked by peer to close service " + toClose);
-            serviceManager.removeService(toClose);
+            try {
+                serviceManager.removeService(toClose);
+            } catch (IllegalArgumentException e) {
+                serviceManager.eh.error("Could not remove service " + toClose, e);
+            }
         }
         else {
             serviceManager.eh.log("Error: Service manager unknown magic value " + magic);
@@ -79,14 +87,24 @@ public class ControlHandler extends ChannelInboundHandlerAdapter {
         buf.writeByte((remotePort >> 8) & 0xFF);
         buf.writeByte(remotePort & 0xFF);
         buf.retain();
-        serviceManager.peer.writeAndFlush(buf);
+
+        ServiceHeader serviceHeader = new ServiceHeader();
+        serviceHeader.buf = buf;
+        serviceHeader.id = 0;
+
+        serviceManager.peer.writeAndFlush(serviceHeader);
     }
 
     public void peerCloseService(int serviceId) {
         buf.writeByte(MAGIC_CLOSE_SERVICE);
         buf.writeByte(serviceId);
         buf.retain();
-        serviceManager.peer.writeAndFlush(buf);
+
+        ServiceHeader serviceHeader = new ServiceHeader();
+        serviceHeader.buf = buf;
+        serviceHeader.id = 0;
+
+        serviceManager.peer.writeAndFlush(serviceHeader);
     }
 
     @Override

@@ -26,6 +26,7 @@ public class ServiceManager {
 
         this.controlHandler = new ControlHandler(this);
         peer.pipeline().addLast(controlHandler);
+        controlHandler.channelActive(peer.pipeline().context(controlHandler));
     }
 
     public void addService(Service s) {

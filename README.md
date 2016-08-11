@@ -18,12 +18,10 @@ This project uses Barchart UDT to provide reliable UDP data transfer, and Bouncy
 
 # Left to implement
 
-- Replace threaded portions with nio + netty to get around the limitations/bugs/performance issues from the current setup:
-    - Fix control service
-    - Make sure that control service errors shut down the connection
-    - Make sure that errors creating a new service / removing one do not shut down the connection
-    - Replace existing tunnel code in ui
-- Make the gui more user friendly
+- Replace existing tunnel code in ui
+- Fix service closing exceptions
+- Fix logging, add separate logs per service + separate ui panes
+- Make the public connection gui more user friendly
 - Add persistent forwarded connections (i.e that reconnect when they close)
 - Establish encrypted connection with public server, authenticate aliases
 - Ask the user to forward ports if udp hole punching doesn't work, and allow connecting directly to another user
