@@ -10,7 +10,6 @@ public abstract class Service {
     private ChannelPipeline pipeline;
 
     protected final ServiceManager serviceManager;
-    protected final ArrayList<EventLoopGroup> logicGroups = new ArrayList<>();
 
     protected ServiceHandler handler;
 
@@ -59,7 +58,6 @@ public abstract class Service {
 
     public void onHandlerInactive() {
         debug("On Service handler inactive");
-        logicGroups.forEach(EventLoopGroup::shutdownGracefully);
     }
 
     public void error(String msg, Throwable cause) {

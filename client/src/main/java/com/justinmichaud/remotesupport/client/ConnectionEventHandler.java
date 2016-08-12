@@ -105,7 +105,7 @@ public class ConnectionEventHandler {
     }
 
     public void error(String msg, Throwable ex) {
-        System.out.println("Error: " + msg + ":" + ex.getMessage());
+        System.out.println("Error: " + msg + ": " + ex.getMessage());
         ex.printStackTrace();
     }
 
