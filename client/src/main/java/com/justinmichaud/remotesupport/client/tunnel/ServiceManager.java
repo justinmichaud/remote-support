@@ -1,18 +1,19 @@
 package com.justinmichaud.remotesupport.client.tunnel;
 
+import com.justinmichaud.remotesupport.client.ConnectionEventHandler;
 import io.netty.channel.Channel;
 import io.netty.channel.nio.NioEventLoopGroup;
 
 public class ServiceManager {
 
     public final Service[] services = new Service[256];
-    public final TunnelEventHandler eh;
+    public final ConnectionEventHandler eh;
     public final NioEventLoopGroup eventLoopGroup;
     public final Channel peer;
 
     private ControlHandler controlHandler;
 
-    public ServiceManager(TunnelEventHandler eh, Channel peer, NioEventLoopGroup workerGroup) {
+    public ServiceManager(ConnectionEventHandler eh, Channel peer, NioEventLoopGroup workerGroup) {
         this.eh = eh;
         this.peer = peer;
         this.eventLoopGroup =  workerGroup;

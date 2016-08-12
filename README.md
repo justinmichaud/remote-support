@@ -20,7 +20,8 @@ This project uses Barchart UDT to provide reliable UDP data transfer, and Bouncy
 
 - Fix ui code mess
 - Fix service closing exceptions
-- Fix logging, add separate logs per service + separate ui panes
+- Fix error edge cases and make error handling ui more friendly
+- Fix logging, add separate logs per service, error handling + separate ui panes
 - Make the public connection gui more user friendly
 - Add persistent forwarded connections (i.e that reconnect when they close)
 - Use netty for public connection / server

@@ -1,5 +1,6 @@
-package com.justinmichaud.remotesupport.client;
+package com.justinmichaud.remotesupport.client.tunnel;
 
+import com.justinmichaud.remotesupport.client.ConnectionEventHandler;
 import com.justinmichaud.remotesupport.client.tunnel.*;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
@@ -18,16 +19,15 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
-import java.util.Scanner;
 import java.util.concurrent.ThreadFactory;
 
 /*
  * Testing for NIO implementation
  */
-public class NioPeerConnection {
+public class PeerConnection {
 
     public static void runPeerConnection(boolean server, InetSocketAddress us, InetSocketAddress peer,
-                                         TunnelEventHandler eh, String alias, String partnerAlias) {
+                                         ConnectionEventHandler eh, String alias, String partnerAlias) {
         eh.log("Connection as " + (server? "server":"client") + ": " + alias + " to " + partnerAlias);
 
         final SSLEngine engine;
@@ -87,7 +87,7 @@ public class NioPeerConnection {
                                     }
                                 });
 
-                                eh.connected(serviceManager);
+                                eh.onPeerConnected(serviceManager);
                             } else {
                                 eh.error("Error during SSL handshake", future.cause());
                                 ch.close();
@@ -105,7 +105,7 @@ public class NioPeerConnection {
             });
 
             ChannelFuture f = b.connect(peer, us);
-            eh.start(f);
+            eh.onConnectingToPeer(f);
             try {
                 f.sync();
             } catch (Exception e) {
@@ -131,10 +131,10 @@ public class NioPeerConnection {
             workerGroup.shutdownGracefully().syncUninterruptibly();
         }
 
-        eh.connectionClosed();
+        eh.onPeerConnectionClosed();
     }
 
-    private static SSLEngine getSSLEngine(boolean server, TunnelEventHandler eh, String alias, String partnerAlias)
+    private static SSLEngine getSSLEngine(boolean server, ConnectionEventHandler eh, String alias, String partnerAlias)
             throws GeneralSecurityException, IOException, OperatorCreationException {
         SSLEngine engine = TlsManager.getSSLContext(partnerAlias,
                 new File(alias.replaceAll("\\W+", "") + "_private.jks"),

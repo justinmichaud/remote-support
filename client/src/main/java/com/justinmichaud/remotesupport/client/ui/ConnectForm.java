@@ -1,18 +1,17 @@
 package com.justinmichaud.remotesupport.client.ui;
 
-import com.barchart.udt.ExceptionUDT;
 import com.intellij.uiDesigner.core.GridConstraints;
 import com.intellij.uiDesigner.core.GridLayoutManager;
-import com.justinmichaud.remotesupport.client.PublicConnection;
-import com.justinmichaud.remotesupport.client.tunnel.TunnelEventHandler;
-import com.justinmichaud.remotesupport.common.WorkerThreadManager;
+import com.justinmichaud.remotesupport.client.ConnectionEventHandler;
+import com.justinmichaud.remotesupport.client.discovery.DiscoveryConnection;
+import com.justinmichaud.remotesupport.client.tunnel.ServiceManager;
 import io.netty.channel.ChannelFuture;
 import org.bouncycastle.util.io.TeeOutputStream;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.io.IOException;
 import java.io.PrintStream;
 import java.net.InetSocketAddress;
 
@@ -22,6 +21,7 @@ public class ConnectForm {
     private JTextField txtDiscoveryServer;
     private JButton connectButton;
     private JTextArea txtConsole;
+    private JTextField txtUsername;
 
     public ConnectForm(JFrame frame) {
         frame.setTitle("Remote Support");
@@ -31,22 +31,15 @@ public class ConnectForm {
         frame.setLocationRelativeTo(null); // Move to center of screen
         frame.setVisible(true);
 
-        txtDiscoveryServer.setText("172.16.1.216");
+        txtDiscoveryServer.setText("localhost");
 
         JTextAreaOutputStream txtOut = new JTextAreaOutputStream(txtConsole);
         System.setOut(new PrintStream(new TeeOutputStream(System.out, txtOut)));
 
         connectButton.addActionListener(e -> {
-            connectButton.setEnabled(false);
-
-            InetSocketAddress addr = new InetSocketAddress(txtDiscoveryServer.getText(), 40000);
-
-            //TODO Temporary
-            WorkerThreadManager workerThreadManager = new WorkerThreadManager(null);
-            final PublicConnection[] publicConnection = new PublicConnection[1];
-            TunnelEventHandler eh = new TunnelEventHandler() {
+            ConnectionEventHandler eh = new ConnectionEventHandler() {
                 @Override
-                public String prompt(String msg) {
+                protected String prompt(String msg) {
                     return JOptionPane.showInputDialog(
                             frame,
                             msg,
@@ -55,40 +48,33 @@ public class ConnectForm {
                 }
 
                 @Override
-                public void start(ChannelFuture f) {
-                    super.start(f);
+                public void onPeerConnected(ServiceManager serviceManager) {
+                    super.onPeerConnected(serviceManager);
 
                     frame.setContentPane(new PeerForm(frame, this, txtOut).root);
                     frame.pack();
                 }
-
-                @Override
-                public void connectionClosed() {
-                    super.connectionClosed();
-                    frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
-                }
-
-                @Override
-                public void discoveryServerConnected() {
-                    System.out.println("Connected to public server!");
-                    String partner = prompt("Who would you like to connect to? Leave empty if nobody.");
-                    if (!partner.isEmpty()) {
-                        try {
-                            publicConnection[0].connect(partner);
-                        } catch (IOException e) {
-                            System.out.println("Error connecting to partner");
-                            workerThreadManager.stop();
-                        }
-                    }
-                }
             };
-            try {
-                publicConnection[0] = new PublicConnection(addr, eh.prompt("What is your username?"), eh);
-                workerThreadManager.makeGroup("PublicConnection", null).addWorkerThread(publicConnection[0]);
-            } catch (ExceptionUDT exceptionUDT) {
-                exceptionUDT.printStackTrace();
-                workerThreadManager.stop();
+
+            if (txtUsername.getText().length() == 0)  {
+                eh.log("You must specify a username!");
+                return;
             }
+            if (txtDiscoveryServer.getText().length() == 0) {
+                eh.log("You must specify a discovery server!");
+                return;
+            }
+
+            frame.addWindowListener(new WindowAdapter(){
+                public void windowClosing(WindowEvent e){
+                    eh.close();
+                }
+            });
+
+            connectButton.setEnabled(false);
+            InetSocketAddress addr = new InetSocketAddress(txtDiscoveryServer.getText(), 40000);
+
+            new Thread(() -> DiscoveryConnection.runDiscoveryConnection(addr, txtUsername.getText(), eh)).start();
         });
     }
 

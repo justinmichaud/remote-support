@@ -1,5 +1,6 @@
 package com.justinmichaud.remotesupport.client.tunnel;
 
+import com.justinmichaud.remotesupport.client.ConnectionEventHandler;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v1CertificateBuilder;
@@ -30,7 +31,7 @@ public class TlsManager {
     private final static char[] keystorePassword = "1".toCharArray();
 
     public static SSLContext getSSLContext(String partnerName, File privateKeystoreFile,
-                                           File trustedKeystoreFile, TunnelEventHandler eh)
+                                           File trustedKeystoreFile, ConnectionEventHandler eh)
             throws GeneralSecurityException, IOException, OperatorCreationException {
         if (Security.getProvider("BC") == null)
             Security.addProvider(new BouncyCastleProvider());
@@ -178,7 +179,7 @@ public class TlsManager {
 
     private static void checkCertificateTrusted(X509Certificate[] chain, KeyStore trustedKeys,
                                                 String partnerName, File trustedKeystoreFile,
-                                                TunnelEventHandler eh) throws CertificateException {
+                                                ConnectionEventHandler eh) throws CertificateException {
         if (chain == null || chain.length != 1)
             throw new CertificateException("Chain Length Not Correct");
 
@@ -187,12 +188,12 @@ public class TlsManager {
             java.security.cert.Certificate storedCert = trustedKeys.getCertificate(partnerName);
 
             if (storedCert == null) {
-                if (!eh.trustNew(untrusted, getCertificateFingerprint(untrusted)))
+                if (!eh.onTrustNew(untrusted, getCertificateFingerprint(untrusted)))
                     throw new CertificateException("Certificate rejected");
                 addTrustedCertificate(untrusted, trustedKeys, partnerName, trustedKeystoreFile);
             }
             else if (!storedCert.equals(untrusted)) {
-                if (!eh.trustDifferent(untrusted, getCertificateFingerprint(untrusted)))
+                if (!eh.onTrustDifferent(untrusted, getCertificateFingerprint(untrusted)))
                     throw new CertificateException("Certificate rejected");
                 addTrustedCertificate(untrusted, trustedKeys, partnerName, trustedKeystoreFile);
             }
@@ -205,9 +206,9 @@ public class TlsManager {
         }
     }
 
-    private static void trustStart(TunnelEventHandler eh, KeyStore privateKey)
+    private static void trustStart(ConnectionEventHandler eh, KeyStore privateKey)
             throws KeyStoreException, CertificateEncodingException, NoSuchAlgorithmException {
         X509Certificate cert = (X509Certificate) privateKey.getCertificate("cert");
-        eh.trustStart(cert, getCertificateFingerprint(cert));
+        eh.onTrustStart(cert, getCertificateFingerprint(cert));
     }
 }

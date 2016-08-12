@@ -3,8 +3,8 @@ package com.justinmichaud.remotesupport.client.ui;
 import com.intellij.uiDesigner.core.GridConstraints;
 import com.intellij.uiDesigner.core.GridLayoutManager;
 import com.intellij.uiDesigner.core.Spacer;
+import com.justinmichaud.remotesupport.client.ConnectionEventHandler;
 import com.justinmichaud.remotesupport.client.tunnel.PortForwardClientService;
-import com.justinmichaud.remotesupport.client.tunnel.TunnelEventHandler;
 
 import javax.swing.*;
 import java.awt.*;
@@ -17,7 +17,7 @@ public class PeerForm {
     private JTextField txtOpenRemotePort;
     private JButton closeButton;
 
-    public PeerForm(JFrame frame, TunnelEventHandler eh, JTextAreaOutputStream txtOut) {
+    public PeerForm(JFrame frame, ConnectionEventHandler eh, JTextAreaOutputStream txtOut) {
         frame.setTitle("Connected to Partner");
 
         txtOut.changeDestination(txtConsole);
@@ -28,7 +28,9 @@ public class PeerForm {
                     Integer.parseInt(txtOpenLocalPort.getText()),
                     Integer.parseInt(txtOpenRemotePort.getText())));
         });
-        closeButton.addActionListener(e -> eh.serviceManager.close());
+        closeButton.addActionListener(e -> {
+            frame.dispose();
+        });
     }
 
     {
