@@ -9,6 +9,8 @@ This is a work-in-progress remote support tool, designed to allow forwarding any
 Currently, it can forward any tcp connection over a channel encrypted by TLSv1.2, with public key authentication, through certain types of NATs.
 Symmetric NATs do not work without setting up port forwarding. See the wikipedia page on [udp hole punching](https://en.wikipedia.org/wiki/UDP_hole_punching) for more information.
 
+[Downloads](https://github.com/jtjj222/remote-support/releases).
+
 # How it works
 
 It uses UDP hole punching to allow clients to connect through a network address translator.
