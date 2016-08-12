@@ -18,11 +18,12 @@ This project uses Barchart UDT to provide reliable UDP data transfer, and Bouncy
 
 # Left to implement
 
-- Replace existing tunnel code in ui
+- Fix ui code mess
 - Fix service closing exceptions
 - Fix logging, add separate logs per service + separate ui panes
 - Make the public connection gui more user friendly
 - Add persistent forwarded connections (i.e that reconnect when they close)
+- Use netty for public connection / server
 - Establish encrypted connection with public server, authenticate aliases
 - Ask the user to forward ports if udp hole punching doesn't work, and allow connecting directly to another user
 - Launch vnc and ssh server remotely

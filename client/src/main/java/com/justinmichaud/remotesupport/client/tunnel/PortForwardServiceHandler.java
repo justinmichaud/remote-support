@@ -1,11 +1,10 @@
-package com.justinmichaud.remotesupport.client.services;
+package com.justinmichaud.remotesupport.client.tunnel;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelOption;
 
 abstract class PortForwardServiceHandler extends ServiceHandler {
 

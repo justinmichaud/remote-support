@@ -1,4 +1,4 @@
-package com.justinmichaud.remotesupport.client.services;
+package com.justinmichaud.remotesupport.client.tunnel;
 
 import io.netty.channel.ChannelFuture;
 
@@ -8,7 +8,10 @@ import java.util.concurrent.RejectedExecutionException;
 
 public class TunnelEventHandler {
 
-    private String cliPrompt(String msg) {
+    public ServiceManager serviceManager;
+
+    //TODO remove
+    public String prompt(String msg) {
         System.out.println("Prompt: " + msg);
         return new Scanner(System.in).nextLine();
     }
@@ -18,13 +21,13 @@ public class TunnelEventHandler {
     }
 
     public boolean trustNew(X509Certificate partnerCert, String fingerprint) throws Exception {
-        return cliPrompt("This is the first time connecting to this computer. Does this fingerprint ("
+        return prompt("This is the first time connecting to this computer. Does this fingerprint ("
                 + fingerprint
                 + ") match the one on the other computer?").equalsIgnoreCase("y");
     }
 
     public boolean trustDifferent(X509Certificate partnerCert, String fingerprint) throws Exception {
-        return cliPrompt("This computer has a different identity since the last time it connected." +
+        return prompt("This computer has a different identity since the last time it connected." +
                 "This could be an attempt to hijack your computer." +
                 "Does this fingerprint (" + fingerprint +
                 ") match the one on the other computer?").equalsIgnoreCase("y");
@@ -65,11 +68,19 @@ public class TunnelEventHandler {
         }));
     }
 
+    public void connected(ServiceManager serviceManager) {
+        this.serviceManager = serviceManager;
+    }
+
     public void serviceOpen(Service service) {
         System.out.println("Event Handler: Service " + service.name + ":" + service.id + " open.");
     }
 
     public void serviceClosed(Service service) {
         System.out.println("Event Handler: Service " + service.name + ":" + service.id + " closed.");
+    }
+
+    public void discoveryServerConnected() {
+        System.out.println("Discovery server connected");
     }
 }

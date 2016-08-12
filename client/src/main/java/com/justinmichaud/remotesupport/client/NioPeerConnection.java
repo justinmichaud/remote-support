@@ -1,6 +1,6 @@
 package com.justinmichaud.remotesupport.client;
 
-import com.justinmichaud.remotesupport.client.services.*;
+import com.justinmichaud.remotesupport.client.tunnel.*;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -26,13 +26,13 @@ import java.util.concurrent.ThreadFactory;
  */
 public class NioPeerConnection {
 
-    public static void runPeerConnection(boolean server, InetSocketAddress us,
-                                         InetSocketAddress peer, TunnelEventHandler eh) {
-        eh.log("Start: " + (server? "server":"client"));
+    public static void runPeerConnection(boolean server, InetSocketAddress us, InetSocketAddress peer,
+                                         TunnelEventHandler eh, String alias, String partnerAlias) {
+        eh.log("Connection as " + (server? "server":"client") + ": " + alias + " to " + partnerAlias);
 
         final SSLEngine engine;
         try {
-             engine = getSSLEngine(server, eh);
+             engine = getSSLEngine(server, eh, alias, partnerAlias);
         } catch (GeneralSecurityException e) {
             eh.error(e.getMessage(), e);
             return;
@@ -83,19 +83,17 @@ public class NioPeerConnection {
 
                                     @Override
                                     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-                                        eh.error("Uncaught exception processing services", cause);
+                                        eh.error("Uncaught exception processing tunnel", cause);
                                     }
                                 });
 
-                                //Testing
-                                if (!server) serviceManager.addService(new PortForwardClientService(1, serviceManager, 4999, 22));
-                                if (!server) serviceManager.addService(new PortForwardClientService(2, serviceManager, 5001, 5002));
+                                eh.connected(serviceManager);
                             } else {
                                 eh.error("Error during SSL handshake", future.cause());
                                 ch.close();
                             }
                         } catch (Exception e) {
-                            eh.error("Uncaught exception initializing peer tunnel services", e);
+                            eh.error("Uncaught exception initializing peer tunnel tunnel", e);
                         }
                     });
                 }
@@ -136,10 +134,8 @@ public class NioPeerConnection {
         eh.connectionClosed();
     }
 
-    private static SSLEngine getSSLEngine(boolean server, TunnelEventHandler eh) throws GeneralSecurityException, IOException, OperatorCreationException {
-        String alias = server?"server":"client";
-        String partnerAlias = server?"client":"server";
-
+    private static SSLEngine getSSLEngine(boolean server, TunnelEventHandler eh, String alias, String partnerAlias)
+            throws GeneralSecurityException, IOException, OperatorCreationException {
         SSLEngine engine = TlsManager.getSSLContext(partnerAlias,
                 new File(alias.replaceAll("\\W+", "") + "_private.jks"),
                 new File(alias.replaceAll("\\W+", "") + "_trusted.jks"),
@@ -148,17 +144,5 @@ public class NioPeerConnection {
         engine.setNeedClientAuth(true);
 
         return engine;
-    }
-
-    public static void main(String... args) {
-        System.out.println("Would you like to start a server [s] or client [c]?");
-        boolean server = new Scanner(System.in).nextLine().equalsIgnoreCase("s");
-
-        TunnelEventHandler eh = new TunnelEventHandler();
-
-        if (server) runPeerConnection(true, new InetSocketAddress("localhost", 5000), new InetSocketAddress("localhost", 8000), eh);
-        else runPeerConnection(false, new InetSocketAddress("localhost", 8000), new InetSocketAddress("localhost", 5000), eh);
-
-        System.out.println("Main Closed.");
     }
 }

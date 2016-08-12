@@ -1,88 +1,34 @@
-package com.justinmichaud.remotesupport.client.tunnel;
+package com.justinmichaud.remotesupport.client;
 
 import com.barchart.udt.ErrorUDT;
 import com.barchart.udt.ExceptionUDT;
 import com.barchart.udt.net.NetSocketUDT;
-import com.justinmichaud.remotesupport.client.tunnel.PeerConnection;
+import com.justinmichaud.remotesupport.client.tunnel.TunnelEventHandler;
 import com.justinmichaud.remotesupport.common.WorkerThreadManager;
-import org.bouncycastle.operator.OperatorCreationException;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.security.GeneralSecurityException;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 public class PublicConnection extends WorkerThreadManager.WorkerThreadPayload {
 
     private final NetSocketUDT socket;
     private final InetSocketAddress publicAddress;
     private final String username;
-    private final Runnable publicConnectedCallback;
-    private final Consumer<Connection> connectCallback;
-    private final Function<String,String> prompter;
+    private final TunnelEventHandler eh;
 
     private BufferedInputStream in;
     private BufferedOutputStream out;
 
     private boolean nameOk = false;
 
-    public class Connection {
-
-        public final String username;
-        public final String partnerName;
-        public final String ip;
-        public final int port;
-        public final NetSocketUDT existingConnection;
-        public final boolean isServer;
-
-        public Connection(String username, String partnerName, String ip, int port,
-                          NetSocketUDT existingConnection, boolean isServer) {
-
-            this.username = username;
-            this.partnerName = partnerName;
-            this.ip = ip;
-            this.port = port;
-            this.existingConnection = existingConnection;
-            this.isServer = isServer;
-        }
-
-        public PeerConnection connect()
-                throws IOException, InterruptedException, GeneralSecurityException, OperatorCreationException {
-            //TODO make this async
-            int existingPort = existingConnection.socketUDT().getLocalInetPort();
-            existingConnection.close();
-
-            NetSocketUDT socket = new NetSocketUDT();
-            socket.socketUDT().setRendezvous(true);
-            socket.socketUDT().bind(new InetSocketAddress(existingPort));
-
-            for (int i = 0; i <= 5; i++) {
-                try {
-                    socket.connect(new InetSocketAddress(ip, port));
-                    break;
-                } catch (IOException e) {
-                    if (i == 5) {
-                        throw e;
-                    }
-                    Thread.sleep(1000);
-                }
-            }
-            return new PeerConnection(username, partnerName, socket, isServer, prompter);
-        }
-    }
-
-    public PublicConnection(InetSocketAddress publicAddress, String username, Runnable publicConnectedCallback,
-                            Consumer<Connection> connectCallback, Function<String, String> prompter)
+    public PublicConnection(InetSocketAddress publicAddress, String username, TunnelEventHandler eh)
             throws ExceptionUDT {
         super("Public connection");
         this.publicAddress = publicAddress;
         this.username = username;
-        this.publicConnectedCallback = publicConnectedCallback;
-        this.connectCallback = connectCallback;
-        this.prompter = prompter;
+        this.eh = eh;
         socket = new NetSocketUDT();
     }
 
@@ -102,7 +48,7 @@ public class PublicConnection extends WorkerThreadManager.WorkerThreadPayload {
 
         if (serverResponse.equalsIgnoreCase("ok") && !nameOk) {
             nameOk = true;
-            publicConnectedCallback.run();
+            eh.discoveryServerConnected();
         }
         else if (serverResponse.startsWith("name_error") && !nameOk) {
             throw new RuntimeException(serverResponse.substring("name_error".length()));
@@ -113,8 +59,9 @@ public class PublicConnection extends WorkerThreadManager.WorkerThreadPayload {
                 throw new RuntimeException("Invalid data from server: " + serverResponse);
             }
 
-            connectCallback.accept(new Connection(username, partnerDetails[2], partnerDetails[3],
-                    Integer.parseInt(partnerDetails[4]), socket, false));
+            NioPeerConnection.runPeerConnection(false, new InetSocketAddress(socket.getLocalPort()),
+                    new InetSocketAddress(partnerDetails[3], Integer.parseInt(partnerDetails[4])), eh,
+                    username, partnerDetails[2]);
         }
         else if (serverResponse.startsWith("connect:")) {
             String[] partnerDetails = serverResponse.split(":");
@@ -122,8 +69,9 @@ public class PublicConnection extends WorkerThreadManager.WorkerThreadPayload {
                 throw new RuntimeException("Invalid data from server: " + serverResponse);
             }
 
-            connectCallback.accept(new Connection(username, partnerDetails[2], partnerDetails[3],
-                    Integer.parseInt(partnerDetails[4]), socket, true));
+            NioPeerConnection.runPeerConnection(true, new InetSocketAddress(socket.getLocalPort()),
+                    new InetSocketAddress(partnerDetails[3], Integer.parseInt(partnerDetails[4])), eh,
+                    username, partnerDetails[2]);
         }
         else if (serverResponse.equalsIgnoreCase("keepalive")) {
             //TODO keepalive

@@ -3,12 +3,11 @@ package com.justinmichaud.remotesupport.client.ui;
 import com.intellij.uiDesigner.core.GridConstraints;
 import com.intellij.uiDesigner.core.GridLayoutManager;
 import com.intellij.uiDesigner.core.Spacer;
-import com.justinmichaud.remotesupport.client.tunnel.PeerConnection;
+import com.justinmichaud.remotesupport.client.tunnel.PortForwardClientService;
+import com.justinmichaud.remotesupport.client.tunnel.TunnelEventHandler;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.WindowEvent;
-import java.io.IOException;
 
 public class PeerForm {
     public JPanel root;
@@ -18,23 +17,18 @@ public class PeerForm {
     private JTextField txtOpenRemotePort;
     private JButton closeButton;
 
-    public PeerForm(JFrame frame, PeerConnection conn, JTextAreaOutputStream txtOut) {
+    public PeerForm(JFrame frame, TunnelEventHandler eh, JTextAreaOutputStream txtOut) {
         frame.setTitle("Connected to Partner");
 
         txtOut.changeDestination(txtConsole);
 
-        conn.setOnClose(() -> frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING)));
-
         openPortButton.addActionListener(e -> {
-            try {
-                conn.openServerPort(conn.serviceManager.getNextId(),
-                        Integer.parseInt(txtOpenLocalPort.getText()),
-                        Integer.parseInt(txtOpenRemotePort.getText()));
-            } catch (IOException e1) {
-                e1.printStackTrace();
-            }
+            eh.serviceManager.addService(new PortForwardClientService(eh.serviceManager.nextId(),
+                    eh.serviceManager,
+                    Integer.parseInt(txtOpenLocalPort.getText()),
+                    Integer.parseInt(txtOpenRemotePort.getText())));
         });
-        closeButton.addActionListener(e -> conn.stop());
+        closeButton.addActionListener(e -> eh.serviceManager.close());
     }
 
     {

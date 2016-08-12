@@ -1,167 +1,64 @@
 package com.justinmichaud.remotesupport.client.tunnel;
 
-import com.justinmichaud.remotesupport.common.CircularByteBuffer;
-import com.justinmichaud.remotesupport.common.InputOutputStreamPipePayload;
-import com.justinmichaud.remotesupport.common.WorkerThreadManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Collection;
-import java.util.concurrent.ConcurrentHashMap;
+import io.netty.channel.Channel;
+import io.netty.channel.nio.NioEventLoopGroup;
 
 public class ServiceManager {
 
-    public final WorkerThreadManager workerThreadManager;
-    public final ControlService controlService;
+    public final Service[] services = new Service[256];
+    public final TunnelEventHandler eh;
+    public final NioEventLoopGroup eventLoopGroup;
+    public final Channel peer;
 
-    private final Logger logger;
+    private ControlHandler controlHandler;
 
-    private final TlsConnection peerSocket;
-    private final WorkerThreadManager.WorkerThreadGroup workerThreadGroup;
-    private final ConcurrentHashMap<Integer, Service> services = new ConcurrentHashMap<>();
-    private final CircularByteBuffer inputBuffer, outputBuffer;
+    public ServiceManager(TunnelEventHandler eh, Channel peer, NioEventLoopGroup workerGroup) {
+        this.eh = eh;
+        this.peer = peer;
+        this.eventLoopGroup =  workerGroup;
 
-    private final Runnable onServiceManagerStopped;
-
-    private class EventLoopPayload extends WorkerThreadManager.WorkerThreadPayload {
-
-        public EventLoopPayload() {
-            super("Service Manager Event Loop");
-        }
-
-        private void handleIncoming() throws IOException {
-            if (peerSocket.isClosed())
-                throw new IOException("Peer socket is closed");
-
-            if (inputBuffer.getAvailable() <= 3) return;
-            InputStream in = inputBuffer.getInputStream();
-            in.mark(3);
-
-            int id = in.read();
-            int length = ((in.read()&0xFF) << 8) | (in.read()&0xFF);
-
-            in.reset();
-
-            if (inputBuffer.getAvailable() < 3 + length) return;
-            skip(in, 3);
-
-            Service s = getService(id);
-            if (s == null) {
-                logger.error("Unknown service id: {}. Skipping.", id);
-                skip(in, length);
-            }
-            else s.readDataFromTunnel(length, in);
-        }
-
-        private void skip(InputStream in, long n) throws IOException {
-            long skipped = 0;
-            while (skipped < n)
-                skipped += in.skip(n - skipped);
-        }
-
-        private void handleOutgoing() throws IOException {
-            for (Service s : services.values()) {
-                s.writeDataToTunnel(outputBuffer.getOutputStream());
-            }
-        }
-
-        @Override
-        public void tick() throws Exception {
-            //These must not block
-            handleIncoming();
-            handleOutgoing();
-        }
+        this.controlHandler = new ControlHandler(this);
+        peer.pipeline().addLast(controlHandler);
+        controlHandler.channelActive(peer.pipeline().context(controlHandler));
     }
 
-    public ServiceManager(TlsConnection peerSocket, Runnable onServiceManagerStopped) throws IOException {
-        this.logger = LoggerFactory.getLogger("[Service Manager]");
-        this.peerSocket = peerSocket;
-        this.onServiceManagerStopped = onServiceManagerStopped;
-
-        inputBuffer = new CircularByteBuffer(CircularByteBuffer.INFINITE_SIZE, false);
-        outputBuffer = new CircularByteBuffer(CircularByteBuffer.INFINITE_SIZE, false);
-
-        workerThreadManager = new WorkerThreadManager(this::stop);
-
-        controlService = new ControlService(this);
-        services.put(0, controlService);
-
-        workerThreadGroup = workerThreadManager.makeGroup("Service Manager", this::stop);
-        workerThreadGroup.addWorkerThread(new InputOutputStreamPipePayload(peerSocket.getInputStream(),
-                inputBuffer.getOutputStream()));
-        workerThreadGroup.addWorkerThread(new InputOutputStreamPipePayload(outputBuffer.getInputStream(),
-                peerSocket.getOutputStream()));
-        workerThreadGroup.addWorkerThread(new EventLoopPayload());
+    public void addService(Service s) {
+        if (services[s.id] != null)
+            throw new IllegalArgumentException("A service with this id already exists");
+        if (s.id <= 0 || s.id > 255)
+            throw new IllegalArgumentException("Invalid service ID");
+        services[s.id] = s;
+        s.addToPipeline(peer.pipeline());
     }
 
-    public Service getService(int id) {
-        return services.get(id);
+    public void removeService(Service s) {
+        s.removeFromPipeline();
     }
 
-    public Collection<Service> getServices() {
-        return services.values();
+    public void removeService(int id) {
+        if (services[id] == null)
+            throw new IllegalArgumentException("Tried to remove service that doesn't exist");
+        removeService(services[id]);
     }
 
-    public int getNextId() {
-        synchronized (services) {
-            int i = 0;
-            while (services.containsKey(i)) i++;
-            return i;
+    public void peerOpenPort(int serviceId, int remotePort) {
+        controlHandler.peerOpenPort(serviceId, remotePort);
+    }
+
+    public void peerCloseService(int serviceId) {
+        controlHandler.peerCloseService(serviceId);
+    }
+
+    public void close() {
+        System.out.println("Service manager closing");
+        for (Service s : services) removeService(s);
+    }
+
+    public int nextId() {
+        for (int i=1; i<services.length; i++) {
+            if (services[i] == null) return i;
         }
-    }
 
-    public Service addService(Service s) throws IOException {
-        synchronized (services) {
-            logger.info("Adding local service {}", s.id);
-
-            if (s.id == 0) {
-                s.stop();
-                stop();
-                throw new IllegalArgumentException("Cannot add service with id 0 - this is reserved by the control service");
-            }
-
-            if (services.containsKey(s.id)) {
-                s.stop();
-                stop();
-                throw new RuntimeException("Overwriting existing service!");
-            }
-
-            services.put(s.id, s);
-            return s;
-        }
-    }
-
-    public void removeStoppedService(Service stopped) {
-        synchronized (services) {
-            Service s = getService(stopped.id);
-            if (s == null)
-                logger.debug("Error removing stopped service " + stopped.id + " - Service does not exist");
-            else if (s != stopped)
-                logger.debug("Error removing stopped service " + stopped.id + " - Service id does not match");
-            else if (s.isRunning())
-                logger.debug("Error removing stopped service " + stopped.id + " - Service is still running");
-            else {
-                services.remove(s.id);
-
-                if (s.id == 0) {
-                    logger.debug("Removing control service");
-                    stop();
-                }
-            }
-        }
-    }
-
-    public void stop() {
-        if (!isRunning()) return;
-        logger.debug("Stopping service manager");
-
-        services.values().forEach(Service::stop);
-        if (onServiceManagerStopped != null) onServiceManagerStopped.run();
-    }
-
-    public boolean isRunning() {
-        return (services.size() > 0);
+        throw new IllegalStateException("No more service ids available");
     }
 }

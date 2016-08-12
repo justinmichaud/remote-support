@@ -1,4 +1,4 @@
-package com.justinmichaud.remotesupport.client.services;
+package com.justinmichaud.remotesupport.client.tunnel;
 
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;

@@ -1,104 +1,85 @@
 package com.justinmichaud.remotesupport.client.tunnel;
 
-import com.justinmichaud.remotesupport.common.CircularByteBuffer;
-import com.justinmichaud.remotesupport.common.WorkerThreadManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import io.netty.channel.ChannelPipeline;
+import io.netty.channel.EventLoopGroup;
 
-import java.io.*;
+import java.util.ArrayList;
 
-/**
- * Represents a bidirectional stream of data over a single stream
- */
 public abstract class Service {
 
-    public final static int MAX_ID = 255;
-
-    public final int id;
-
-    // Out buffer is data that came from our output stream, to the tunnel
-    // In buffer is data from the tunnel, to our input stream
-    // In buffer is read by our inputstream, out buffer is written to by our outputstream
-    // read/write to and from tunnel are nonblocking
-
-    protected final CircularByteBuffer inBuffer, outBuffer;
-    protected final byte[] outBuf = new byte[65535];
-    protected final byte[] inBuf = new byte[65535];
+    private ChannelPipeline pipeline;
 
     protected final ServiceManager serviceManager;
-    protected final WorkerThreadManager.WorkerThreadGroup workerThreadGroup;
+    protected final ArrayList<EventLoopGroup> logicGroups = new ArrayList<>();
 
-    protected final Logger logger;
+    protected ServiceHandler handler;
 
-    public Service(int id, ServiceManager serviceManager) {
-        if (id > MAX_ID) throw new IllegalArgumentException("Id is greater than max service id");
+    public final String name;
+    public final int id;
 
+    public Service(String name, int id, ServiceManager serviceManager) {
+        if (id <=0 || id >255) throw new IllegalArgumentException("Invalid Service ID");
+
+        this.name = name;
         this.id = id;
         this.serviceManager = serviceManager;
-        logger = LoggerFactory.getLogger("Service " + id + ": " + getClass().getSimpleName());
-
-        workerThreadGroup = serviceManager.workerThreadManager.makeGroup("Service " + id, this::stop);
-        inBuffer = new CircularByteBuffer(CircularByteBuffer.INFINITE_SIZE, false);
-        outBuffer = new CircularByteBuffer(CircularByteBuffer.INFINITE_SIZE, false);
     }
 
-    public void readDataFromTunnel(int size, InputStream in) throws IOException {
-        if (size > inBuf.length) throw new IOException("Size is greater than maximum!");
-        if (size <= 0) throw new IOException("Size is smaller than or equal to zero!");
-
-        int read = 0;
-        while (read < size) {
-            int r = in.read(inBuf, read, size - read);
-            if (r <= 0) throw new IOException("End of stream");
-            read += r;
-        }
-        inBuffer.getOutputStream().write(inBuf, 0, read);
+    protected void setHandler(ServiceHandler handler) {
+        this.handler = handler;
     }
 
-    public void writeDataToTunnel(OutputStream out) throws IOException {
-        if (outBuffer.getAvailable() <= 0) return;
-        int read = outBuffer.getInputStream().read(outBuf);
-        if (read <= 0) throw new IOException("End of stream");
+    public void addToPipeline(ChannelPipeline pipeline) {
+        if (handler == null) throw new IllegalStateException("Must set handler");
 
-        // [1 byte - service id] [2 bytes - size] [data]
-        out.write(id);
-        out.write((read >> 8) & 0xFF);
-        out.write(read & 0xFF);
-        out.write(outBuf, 0, read);
+        serviceManager.eh.serviceOpen(this);
+
+        this.pipeline = pipeline;
+        pipeline.addBefore("last", "service:" + id, handler);
+        handler.channelActive(pipeline.context(handler));
     }
 
-    // Write data to the tunnel
-    protected OutputStream getOutputStream() {
-        return outBuffer.getOutputStream();
+    public void removeFromPipeline() {
+        if (handler == null) throw new IllegalStateException("Must set handler");
+
+        debug("Removing service from pipeline");
+        handler.channelInactive(pipeline.context(handler));
+        pipeline.remove(handler);
+
+        if (serviceManager.services[id] != this)
+            log("Error: There is a different service with this id!");
+        serviceManager.services[id] = null;
+        serviceManager.peerCloseService(id);
+        serviceManager.eh.serviceClosed(this);
     }
 
-    // Read data from the tunnel
-    protected InputStream getInputStream() {
-        return inBuffer.getInputStream();
+    public void onHandlerActive() {
+        debug("On Service handler active");
     }
 
-    public void stop() {
-        if (!isRunning()) return;
-
-        logger.debug("Stopping service");
-        workerThreadGroup.stop();
-        try {
-            if (!outBuffer.outputStreamClosed) outBuffer.getOutputStream().close();
-            if (!outBuffer.inputStreamClosed) outBuffer.getInputStream().close();
-            if (!inBuffer.outputStreamClosed) inBuffer.getOutputStream().close();
-            if (!inBuffer.inputStreamClosed) inBuffer.getInputStream().close();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-        serviceManager.removeStoppedService(this);
+    public void onHandlerInactive() {
+        debug("On Service handler inactive");
+        logicGroups.forEach(EventLoopGroup::shutdownGracefully);
     }
 
-    public boolean isRunning() {
-        return (workerThreadGroup.isRunning()
-                || !inBuffer.inputStreamClosed
-                || !inBuffer.outputStreamClosed
-                || !outBuffer.inputStreamClosed
-                || !outBuffer.outputStreamClosed);
+    public void error(String msg, Throwable cause) {
+        serviceManager.eh.error(this + ": " + msg, cause);
+    }
+
+    public void debugError(String msg, Throwable cause) {
+        serviceManager.eh.debugError(this + ": " + msg, cause);
+    }
+
+    public void log(String msg) {
+        serviceManager.eh.log(this + ": " + msg);
+    }
+
+    public void debug(String msg) {
+        serviceManager.eh.debug(this + ": " + msg);
+    }
+
+    @Override
+    public String toString() {
+        return name + ":" + id;
     }
 }

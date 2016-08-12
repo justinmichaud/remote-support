@@ -3,11 +3,16 @@ package com.justinmichaud.remotesupport.client.ui;
 import com.barchart.udt.ExceptionUDT;
 import com.intellij.uiDesigner.core.GridConstraints;
 import com.intellij.uiDesigner.core.GridLayoutManager;
-import com.justinmichaud.remotesupport.client.tunnel.SimpleClient;
+import com.justinmichaud.remotesupport.client.PublicConnection;
+import com.justinmichaud.remotesupport.client.tunnel.TunnelEventHandler;
+import com.justinmichaud.remotesupport.common.WorkerThreadManager;
+import io.netty.channel.ChannelFuture;
 import org.bouncycastle.util.io.TeeOutputStream;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.WindowEvent;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.net.InetSocketAddress;
 
@@ -36,19 +41,53 @@ public class ConnectForm {
 
             InetSocketAddress addr = new InetSocketAddress(txtDiscoveryServer.getText(), 40000);
 
+            //TODO Temporary
+            WorkerThreadManager workerThreadManager = new WorkerThreadManager(null);
+            final PublicConnection[] publicConnection = new PublicConnection[1];
+            TunnelEventHandler eh = new TunnelEventHandler() {
+                @Override
+                public String prompt(String msg) {
+                    return JOptionPane.showInputDialog(
+                            frame,
+                            msg,
+                            "Question",
+                            JOptionPane.PLAIN_MESSAGE);
+                }
+
+                @Override
+                public void start(ChannelFuture f) {
+                    super.start(f);
+
+                    frame.setContentPane(new PeerForm(frame, this, txtOut).root);
+                    frame.pack();
+                }
+
+                @Override
+                public void connectionClosed() {
+                    super.connectionClosed();
+                    frame.dispatchEvent(new WindowEvent(frame, WindowEvent.WINDOW_CLOSING));
+                }
+
+                @Override
+                public void discoveryServerConnected() {
+                    System.out.println("Connected to public server!");
+                    String partner = prompt("Who would you like to connect to? Leave empty if nobody.");
+                    if (!partner.isEmpty()) {
+                        try {
+                            publicConnection[0].connect(partner);
+                        } catch (IOException e) {
+                            System.out.println("Error connecting to partner");
+                            workerThreadManager.stop();
+                        }
+                    }
+                }
+            };
             try {
-                SimpleClient client = new SimpleClient(
-                        (msg) -> JOptionPane.showInputDialog(
-                                frame,
-                                msg,
-                                "Question",
-                                JOptionPane.PLAIN_MESSAGE),
-                        (c) -> {
-                            frame.setContentPane(new PeerForm(frame, c, txtOut).root);
-                            frame.pack();
-                        }, addr);
+                publicConnection[0] = new PublicConnection(addr, eh.prompt("What is your username?"), eh);
+                workerThreadManager.makeGroup("PublicConnection", null).addWorkerThread(publicConnection[0]);
             } catch (ExceptionUDT exceptionUDT) {
                 exceptionUDT.printStackTrace();
+                workerThreadManager.stop();
             }
         });
     }
