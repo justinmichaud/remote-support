@@ -61,7 +61,7 @@ public class PeerConnection {
                     handshakeFuture.addListener(future -> {
                         try {
                             if (future.isSuccess()) {
-                                eh.debug("SSL handshake done");
+                                eh.log("Connected to peer!");
 
                                 //Inbound
                                 pipeline.addLast(new LengthFieldBasedFrameDecoder(65535, 0, 2, 0, 2));
@@ -109,7 +109,7 @@ public class PeerConnection {
             try {
                 f.sync();
             } catch (Exception e) {
-                eh.error("Uncaught error: ", e);
+                eh.error("Uncaught peer error: ", e);
             }
 
             if (f.isSuccess()) eh.log("Connected to peer - Authenticating");

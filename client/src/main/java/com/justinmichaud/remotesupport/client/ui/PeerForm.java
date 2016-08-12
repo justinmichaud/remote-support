@@ -29,7 +29,8 @@ public class PeerForm {
                     Integer.parseInt(txtOpenRemotePort.getText())));
         });
         closeButton.addActionListener(e -> {
-            frame.dispose();
+            eh.close();
+            closeButton.setEnabled(false);
         });
     }
 

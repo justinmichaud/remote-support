@@ -4,6 +4,8 @@ import com.justinmichaud.remotesupport.client.ConnectionEventHandler;
 import io.netty.channel.Channel;
 import io.netty.channel.nio.NioEventLoopGroup;
 
+import java.util.concurrent.RejectedExecutionException;
+
 public class ServiceManager {
 
     public final Service[] services = new Service[256];
@@ -52,7 +54,10 @@ public class ServiceManager {
 
     public void close() {
         System.out.println("Service manager closing");
-        for (Service s : services) removeService(s);
+        for (Service s : services) if (s!=null) s.removeFromPipeline();
+        try {
+            peer.close().syncUninterruptibly();
+        } catch (RejectedExecutionException e) {}
     }
 
     public int nextId() {

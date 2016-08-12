@@ -52,7 +52,9 @@ public class DiscoveryConnection {
             try {
                 f.sync();
             } catch (Exception e) {
-                eh.error("Uncaught error: ", e);
+                eh.error("Uncaught discovery error: ", e);
+                eh.onDiscoveryConnectionClosed();
+                return;
             }
 
             if (f.isSuccess()) eh.log("Connected to discovery server");
@@ -68,12 +70,11 @@ public class DiscoveryConnection {
                 eh.error("Interrupted while waiting for connection to close", e);
             }
 
-            eh.debug("Channel closed");
+            eh.debug("Discovery Channel closed");
         } finally {
             group.shutdownGracefully().syncUninterruptibly();
+            eh.onDiscoveryConnectionClosed();
         }
-
-        eh.onDiscoveryConnectionClosed();
     }
 
 }

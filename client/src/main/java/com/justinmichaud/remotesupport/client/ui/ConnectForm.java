@@ -10,6 +10,8 @@ import org.bouncycastle.util.io.TeeOutputStream;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.PrintStream;
@@ -22,6 +24,7 @@ public class ConnectForm {
     private JButton connectButton;
     private JTextArea txtConsole;
     private JTextField txtUsername;
+    private JButton closeButton;
 
     public ConnectForm(JFrame frame) {
         frame.setTitle("Remote Support");
@@ -54,6 +57,21 @@ public class ConnectForm {
                     frame.setContentPane(new PeerForm(frame, this, txtOut).root);
                     frame.pack();
                 }
+
+                @Override
+                public void onDiscoveryConnectionClosed() {
+                    super.onDiscoveryConnectionClosed();
+
+                    connectButton.setEnabled(true);
+                }
+
+                @Override
+                public void onPeerConnectionClosed() {
+                    super.onPeerConnectionClosed();
+
+                    frame.setContentPane(new ConnectionClosedForm(frame, txtOut).root);
+                    frame.pack();
+                }
             };
 
             if (txtUsername.getText().length() == 0)  {
@@ -69,6 +87,10 @@ public class ConnectForm {
                 public void windowClosing(WindowEvent e){
                     eh.close();
                 }
+            });
+
+            closeButton.addActionListener(actionEvent -> {
+                eh.close();
             });
 
             connectButton.setEnabled(false);

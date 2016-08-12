@@ -22,7 +22,7 @@ public class ConnectionEventHandler {
     }
 
     public void onDiscoveryServerNameAuthenticated() {
-        System.out.println("Your name is valid");
+        System.out.println("Your name is valid. Waiting for connection");
         String partner = prompt("Who would you like to connect to? Leave empty if nobody.");
         if (!partner.isEmpty()) {
             connectToPeer(partner);
@@ -36,20 +36,20 @@ public class ConnectionEventHandler {
 
     public void close() {
         log("Event handler asked to close");
-        if (discoveryClient != null && discoveryClient.channel != null)
-            discoveryClient.channel.close();
-        if (serviceManager != null)
-            serviceManager.close();
-        else if (peerChannelFuture != null) {
-            log("Closing before peer connection established");
-            try {
+        try {
+            if (discoveryClient != null && discoveryClient.channel != null)
+                discoveryClient.channel.close().syncUninterruptibly();
+            if (serviceManager != null)
+                serviceManager.close();
+            else if (peerChannelFuture != null) {
+                log("Closing before peer connection established");
                 peerChannelFuture.channel().close().syncUninterruptibly();
-            } catch (RejectedExecutionException e) {}
-        }
+            }
+        } catch (RejectedExecutionException e) {}
     }
 
     public void onDiscoveryConnectionClosed() {
-        System.out.println("Discovery connection closed");
+        debug("Discovery connection closed");
         discoveryClient = null;
     }
 
@@ -71,7 +71,7 @@ public class ConnectionEventHandler {
     }
 
     public void onPeerConnectionClosed() {
-        System.out.println("Peer Connection closed.");
+        System.out.println("--- Connection Closed ---");
     }
 
     protected String prompt(String msg) {
@@ -101,18 +101,16 @@ public class ConnectionEventHandler {
     }
 
     public void debug(String msg) {
-        System.out.println("Debug: " + msg );
+        System.err.println("Debug: " + msg );
     }
 
     public void error(String msg, Throwable ex) {
-        System.out.println("Error: " + msg + ":");
+        System.out.println("Error: " + msg + ":" + ex.getMessage());
         ex.printStackTrace();
-        System.out.println("-------------------");
     }
 
     public void debugError(String msg, Throwable ex) {
-        System.out.println("Debug Error: " + msg + ":");
+        System.err.println("Debug Error: " + msg + ": " + ex.getMessage());
         ex.printStackTrace();
-        System.out.println("-------------------");
     }
 }
