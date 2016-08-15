@@ -13,7 +13,9 @@ Symmetric NATs do not work without setting up port forwarding. See the wikipedia
 
 # How to use
 1) Make sure you are not working from a corporate network. If you are, you will need to set up port forwarding, which is not currently supported.
+
 2) Download and run the server application on a computer accessible to both of the clients, with port 40000 open.
+
 3) Download and run the client application by extracting the zip and launching the shell script (linux/mac) or the .bat file (windows). Enter the public ip address or domain for the discovery server you set up in part 2. The application will connect to this address on port 40000 to negotiate a connection with your partner, but no data from the tunnel will be sent to the discovery server once your connection is established.
 
 ![screenshot 2](https://raw.githubusercontent.com/jtjj222/remote-support/master/images/screen2.png)
