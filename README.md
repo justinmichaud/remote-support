@@ -2,14 +2,14 @@
 
 This is a work-in-progress remote support tool, designed to allow forwarding any tcp connection securely over the internet without having to set up port forwarding.
 
-![screenshot 1](https://raw.githubusercontent.com/jtjj222/remote-support/master/images/screen1.png)
+![screenshot 1](https://raw.githubusercontent.com/justinmichaud/remote-support/master/images/screen1.png)
 
 # Status
 
 Currently, it can forward any tcp connection over a channel encrypted by TLSv1.2, with public key authentication, through certain types of NATs. It is still very rough around the edges.
 Symmetric NATs do not work without setting up port forwarding. See the wikipedia page on [udp hole punching](https://en.wikipedia.org/wiki/UDP_hole_punching) for more information.
 
-[Downloads](https://github.com/jtjj222/remote-support/releases).
+[Downloads](https://github.com/justinmichaud/remote-support/releases).
 
 # How to use
 1) Make sure you are not working from a corporate network. If you are, you will need to set up port forwarding, which is not currently supported.
@@ -18,19 +18,19 @@ Symmetric NATs do not work without setting up port forwarding. See the wikipedia
 
 3) Download and run the client application by extracting the zip and launching the shell script (linux/mac) or the .bat file (windows). Enter the public ip address or domain for the discovery server you set up in part 2. The application will connect to this address on port 40000 to negotiate a connection with your partner, but no data from the tunnel will be sent to the discovery server once your connection is established.
 
-![screenshot 2](https://raw.githubusercontent.com/jtjj222/remote-support/master/images/screen2.png)
+![screenshot 2](https://raw.githubusercontent.com/justinmichaud/remote-support/master/images/screen2.png)
 
 4) Connect to your partner, or leave blank if your partner will connect to you
 
-![screenshot 3](https://raw.githubusercontent.com/jtjj222/remote-support/master/images/screen3.png)
+![screenshot 3](https://raw.githubusercontent.com/justinmichaud/remote-support/master/images/screen3.png)
 
 5) Verify your X509 Certificate fingerprints
 
-![screenshot 4](https://raw.githubusercontent.com/jtjj222/remote-support/master/images/screen4.png)
+![screenshot 4](https://raw.githubusercontent.com/justinmichaud/remote-support/master/images/screen4.png)
 
 6)You are now connected. Enter a local port to be forwarded to a remote port. A single tcp connection on this port will be forwarded to the remote computer. Once the connection closes, you will have to re-open the port.
 
-![screenshot 5](https://raw.githubusercontent.com/jtjj222/remote-support/master/images/screen5.png)
+![screenshot 5](https://raw.githubusercontent.com/justinmichaud/remote-support/master/images/screen5.png)
 
 In the example above, to ssh in to the remote computer you would use
     ssh [remote-user]@localhost -p 2222
